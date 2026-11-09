@@ -55,6 +55,17 @@ developer checkout. See [CLUSTER.md](CLUSTER.md) for repeatable commands and
 remaining operational limitations. These checks are not a public-hosting or
 multi-client load certification.
 
+## Checkpoint retention and rollback
+
+- Twenty-six supervisor/storage tests pass, including the existing twelve
+  policy tests. Coverage adds default/custom retention, numeric generation
+  ordering, commit/busy boundaries, owner/admin and stopped-world restrictions,
+  required destructive confirmation, stale selections, interrupted rollback
+  recovery, damaged heads, filesystem path/symlink confinement, and staging the
+  selected map/state on the next start.
+- The independent lobby build compiles with zero errors/warnings after adding
+  the stopped-world checkpoint selection and deletion-warning confirmation.
+
 ## Repeating the smoke test
 
 Use a **disposable checkout**, supply the pinned BYOND/native dependencies and

@@ -29,6 +29,8 @@ so upstream changes can continue to be merged.
   owner stop controls, administrator admission, and single-use join tickets.
 - Per-player drone persistence in shared worlds, with separate inventories,
   appearances and respawn state. Empty worlds save and stop automatically.
+- Configurable checkpoint retention (four per world by default), with owner/
+  admin rollback of stopped worlds and confirmation before deleting newer saves.
 
 These features were ported from a local prototype. The fork still needs
 broader validation, save-schema evolution and failure recovery work.

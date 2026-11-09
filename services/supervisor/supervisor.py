@@ -20,6 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
 from protocol import topic
+from checkpoints import Checkpoints, CheckpointError
 
 
 class Denied(ValueError):
@@ -176,6 +177,17 @@ class Supervisor:
         """)
         self.db.commit()
         self.stop_workers = set()
+        self.checkpoints = Checkpoints(config["data_directory"], config.get("kept_save_points_per_world", 4))
+        # Running children are reconciled by tick; stopped worlds have no writers.
+        for row in self.db.execute("SELECT id FROM worlds WHERE id NOT IN (SELECT world FROM runs)"):
+            self.maintain_checkpoints(row[0])
+
+    def maintain_checkpoints(self, world, expected=None):
+        try:
+            self.checkpoints.retain(world, expected)
+        except (CheckpointError, OSError, ValueError, KeyError):
+            # A damaged history must not prevent unrelated worlds from running.
+            print(f"Checkpoint maintenance failed for world {world}; history retained for inspection", flush=True)
 
     def row(self, sql, args=()):
         result = self.db.execute(sql, args).fetchone()
@@ -251,11 +263,26 @@ class Supervisor:
                 return {"ok": True, "id": world_id}
             world = self.world(data.get("world"))
             role = self.role(actor, world)
-            if action in ("edit", "stop", "member"):
+            if action in ("edit", "stop", "member", "checkpoints", "rollback"):
                 if role not in ("owner", "admin"):
                     raise Denied("Only the owner or a server administrator can do that")
                 run = self.row("SELECT * FROM runs WHERE world=?", (world["id"],))
-                if action == "edit":
+                if action in ("checkpoints", "rollback"):
+                    if run:
+                        raise Denied("Stop the world before browsing or restoring checkpoints")
+                    try:
+                        self.checkpoints.retain(world["id"])
+                        if action == "checkpoints":
+                            return {"ok": True, **self.checkpoints.list(world["id"])}
+                        if data.get("confirm_delete_newer") not in (True, 1):
+                            raise Denied("Confirm that all newer checkpoints will be permanently deleted")
+                        result = self.checkpoints.rollback(world["id"], data.get("generation"), data.get("expected_latest"))
+                    except CheckpointError as error:
+                        raise Denied(str(error)) from None
+                    self.db.execute("DELETE FROM tickets WHERE world=?", (world["id"],))
+                    self.audit(actor, "rollback:" + result["generation"], world["id"])
+                    return result
+                elif action == "edit":
                     if run:
                         raise Denied("Stop the world before editing its settings")
                     fields = self.settings(data, world)
@@ -315,6 +342,11 @@ class Supervisor:
             return None
 
     def start(self, world):
+        # Finish any interrupted rollback before a child can read its startup files.
+        try:
+            self.checkpoints.retain(world["id"])
+        except CheckpointError as error:
+            raise Denied(str(error)) from None
         runs = [dict(r) for r in self.db.execute("SELECT * FROM runs")]
         if len(runs) >= self.config["max_running_worlds"]:
             raise Denied("The server's running-world limit has been reached")
@@ -405,6 +437,7 @@ class Supervisor:
                     self.db.execute("DELETE FROM runs WHERE id=?", (run["id"],))
                     self.db.execute("DELETE FROM tickets WHERE run=?", (run["id"],))
                     self.db.execute("DELETE FROM sessions WHERE run=?", (run["id"],))
+                    self.maintain_checkpoints(run["world"])
                 continue
             with self.lock, self.db:
                 current = self.row("SELECT * FROM runs WHERE id=?", (run["id"],))
@@ -426,19 +459,22 @@ class Supervisor:
                 empty = None if players or pending or active else (current["empty_since"] or self.clock())
                 self.db.execute("UPDATE runs SET state=?,players=?,empty_since=?,last_save=?,error=? WHERE id=?",
                                 (state, json.dumps(players), empty, status.get("last_save"), status.get("error") or current["error"], run["id"]))
+                if status.get("last_save") and not status.get("busy"):
+                    self.maintain_checkpoints(run["world"], expected=status["last_save"])
                 if state == "running" and empty and self.clock() - empty >= self.config["empty_grace_seconds"]:
                     self.begin_stop(current)
 
 
 def load_config(path):
     config = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    config.setdefault("kept_save_points_per_world", 4)
     if config.get("listen_host") != "127.0.0.1":
         raise ValueError("The trusted API must bind to 127.0.0.1")
     if len(config.get("lobby_secret", "")) < 32 or config["lobby_secret"].startswith("REPLACE"):
         raise ValueError("Set a random lobby_secret of at least 32 characters")
     for key in ("listen_port", "port_first", "port_last", "max_running_worlds", "max_players_per_world",
                 "max_worlds_per_player", "max_running_worlds_per_player", "empty_grace_seconds",
-                "startup_timeout_seconds", "ticket_lifetime_seconds"):
+                "startup_timeout_seconds", "ticket_lifetime_seconds", "kept_save_points_per_world"):
         if type(config.get(key)) is not int or config[key] < 1:
             raise ValueError(f"{key} must be a positive integer")
     if config["port_last"] < config["port_first"] or config["port_last"] > 65535:

@@ -89,7 +89,7 @@ body{background:#171d28;color:#e4eaf5;font:16px Segoe UI,Arial;padding:24px}a{co
 			content += "<a href='?src=\ref[src];action=join;world=[id]'>Join</a>"
 			if(card["role"] == "owner" || card["role"] == "admin")
 				if(card["state"] == "stopped")
-					content += "<a href='?src=\ref[src];action=edit;world=[id]'>Edit settings</a><a href='?src=\ref[src];action=member;world=[id]'>Members</a>"
+					content += "<a href='?src=\ref[src];action=edit;world=[id]'>Edit settings</a><a href='?src=\ref[src];action=member;world=[id]'>Members</a><a href='?src=\ref[src];action=rollback;world=[id]'>Saved checkpoints / rollback</a>"
 				else
 					content += "<a href='?src=\ref[src];action=stop;world=[id]'>Force stop / return players to lobby</a>"
 			if(card["error"])
@@ -171,6 +171,28 @@ body{background:#171d28;color:#e4eaf5;font:16px Segoe UI,Arial;padding:24px}a{co
 			show_browser()
 			sleep(20)
 		notice = "Startup is taking longer than expected. Check the world status and try Join again."
+	else if(action == "rollback")
+		var/list/history = api("checkpoints", payload)
+		if(history["error"])
+			notice = history["error"]
+			return
+		var/list/options = list()
+		for(var/list/point in history["checkpoints"])
+			var/label = "[point["generation"]][point["current"] ? " (current)" : ""]"
+			options[label] = point["generation"]
+		if(!length(options))
+			notice = "This world has no saved checkpoints yet."
+			return
+		var/choice = input(src, "Choose a saved checkpoint to restore. Newest checkpoints are listed first.", "Restore world") as null|anything in options
+		if(!choice)
+			return
+		if(alert(src, "Restore [choice]? This rewinds the entire world for everyone. ALL NEWER CHECKPOINTS WILL BE PERMANENTLY DELETED. This cannot be undone.", "Confirm rollback", "Cancel", "Restore and delete newer") != "Restore and delete newer")
+			return
+		payload["generation"] = options[choice]
+		payload["expected_latest"] = history["latest"]
+		payload["confirm_delete_newer"] = 1
+		var/list/result = api("rollback", payload)
+		notice = result["error"] || "Checkpoint restored. Newer checkpoints deleted: [result["deleted"]]. Join to continue from this point."
 	else if(action == "stop")
 		if(alert(src, "Save and stop this world now? All remaining players will be returned to the lobby.", "Force stop", "Cancel", "Stop world") != "Stop world")
 			return

@@ -85,6 +85,18 @@ lobby before stopping the cluster processes. Do not kill a child to save it.
 - Force stop blocks new admissions immediately, saves, offers connected
   players a redirect to the lobby, and exits three seconds later, disconnecting
   anyone who declines the redirect. It does not discard unsaved progress.
+- `kept_save_points_per_world` controls retained checkpoints, including the
+  current one, and defaults to **4**. It must be a positive integer. Older
+  committed generations are removed after a completed save and on startup for
+  stopped worlds. Only complete generations at or before the current checkpoint
+  are offered for restore.
+- Owners/admins can select **Saved checkpoints / rollback** on a stopped world.
+  The confirmation warns that the entire world is rewound and **all newer
+  checkpoints are permanently deleted**. Members/guests cannot rewind it.
+  A stale selection is rejected if the history changed while confirming.
+  Rollback atomically changes the current checkpoint; a recovery journal
+  completes interrupted deletions before another start. The next Join stages
+  the selected map and state, replacing cached startup data.
 
 ## Persistence and size
 

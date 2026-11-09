@@ -16,6 +16,7 @@
   "max_players_per_world": 4,
   "max_worlds_per_player": 3,
   "max_running_worlds_per_player": 1,
+  "kept_save_points_per_world": 4,
   "empty_grace_seconds": 120,
   "startup_timeout_seconds": 300,
   "ticket_lifetime_seconds": 60
