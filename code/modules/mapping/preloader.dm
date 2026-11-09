@@ -28,6 +28,10 @@ GLOBAL_LIST_INIT(_preloader_path, null)
 			GLOB.dirty_vars += message
 		#endif
 		what.vars[attribute] = value
+#ifdef BABYLON_BUILDER // BABYLON13: see modular_babylon/UPSTREAM_HOOKS.md
+	if(what.babylon_save_id)
+		GLOB.babylon_save.preload_atom(what)
+#endif
 
 /// Template noop (no operation) is used to skip a turf or area when the template is loaded this allows for template transparency
 /// ex. if a ship has gaps in its design, you would use template_noop to fill these in so that when the ship moves z-level, any

@@ -402,6 +402,14 @@ Used by the AI doomsday and the self-destruct nuke.
 #define INIT_ANNOUNCE(X) to_chat(world, span_boldannounce("[X]"), MESSAGE_TYPE_DEBUG); log_world(X)
 /datum/controller/subsystem/mapping/proc/LoadGroup(list/errorList, name, path, files, list/traits, list/default_traits, silent = FALSE, height_autosetup = TRUE)
 	. = list()
+#ifdef BABYLON_BUILDER // BABYLON13: see modular_babylon/UPSTREAM_HOOKS.md
+	// The minimal compiled map is smaller than the Babylon ruin. BYOND may
+	// also allocate an unregistered lobby level before mapping initializes.
+	if(world.maxx < 255)
+		world.increase_max_x(255)
+	if(world.maxy < 255)
+		world.increase_max_y(255)
+#endif
 	var/start_time = REALTIMEOFDAY
 
 	if (!islist(files))  // handle single-level maps
@@ -442,6 +450,9 @@ Used by the AI doomsday and the self-destruct nuke.
 
 	// preload the relevant space_level datums
 	var/start_z = world.maxz + 1
+#ifdef BABYLON_BUILDER // BABYLON13: see modular_babylon/UPSTREAM_HOOKS.md
+	start_z = length(z_list) + 1
+#endif
 	var/i = 0
 	for (var/level in traits)
 		add_new_zlevel("[name][i ? " [i + 1]" : ""]", level, contain_turfs = FALSE)

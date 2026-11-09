@@ -38,6 +38,9 @@
  * * encode_text - if TRUE, the text will be HTML encoded
  */
 /proc/priority_announce(text, title = "", sound, type, sender_override, has_important_message = FALSE, list/mob/players = GLOB.player_list, encode_title = TRUE, encode_text = TRUE, color_override)
+#ifdef BABYLON_BUILDER // BABYLON13: see modular_babylon/UPSTREAM_HOOKS.md
+	return
+#endif
 	if(!text)
 		return
 
@@ -112,6 +115,9 @@
  * Defaults to FALSE, which means only basic HTML will be rendered.
  */
 /proc/print_command_report(text = "", title = null, announce = TRUE, contains_advanced_html = FALSE)
+#ifdef BABYLON_BUILDER // BABYLON13: see modular_babylon/UPSTREAM_HOOKS.md
+	return
+#endif
 	if(!title)
 		title = "Classified [command_name()] Update"
 
@@ -144,6 +150,9 @@
  * color_override - optional, use the passed color instead of the default notice color.
  */
 /proc/minor_announce(message, title = "Attention:", alert = FALSE, html_encode = TRUE, list/players, sound_override, should_play_sound = TRUE, color_override)
+#ifdef BABYLON_BUILDER // BABYLON13: see modular_babylon/UPSTREAM_HOOKS.md
+	return
+#endif
 	if(!message)
 		return
 

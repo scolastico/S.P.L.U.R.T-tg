@@ -1,0 +1,16 @@
+{
+  "map_path": "babylon",
+  "version": 1,
+  "space_empty_levels": 0,
+  "space_ruin_levels": 0,
+  "map_name": "Babylon 13 - Persistent Builder",
+  "minetype": "none",
+  "traits": [
+    {
+      "Gravity": true,
+      "Station": true
+    }
+  ],
+  "shuttles": {},
+  "map_file": "active.dmm"
+}

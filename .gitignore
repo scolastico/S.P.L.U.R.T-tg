@@ -261,3 +261,13 @@ define_sanity_output.txt
 # Running OpenDream locally
 tgstation.json
 rust_g64.dll
+
+# Babylon generated runtime state (never publish worlds or credentials)
+/_maps/babylon/active.dmm
+/data/babylon/
+/babylon-config/
+/babylon*.dmb
+/babylon*.rsc
+/babylon*.dyn.rsc*
+/babylon*.rsc.lk
+/babylon*.log

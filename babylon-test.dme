@@ -1,0 +1,3 @@
+// Local integration testing only. Do not host this binary publicly.
+#define BABYLON_TESTING
+#include "babylon.dme"

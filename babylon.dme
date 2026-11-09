@@ -1,0 +1,14 @@
+// Optional Babylon build. Keep tgstation.dme identical to upstream.
+#define BABYLON_BUILDER
+#define FORCE_MAP "babylon13"
+#define MINIMAL_CENTCOM
+#define AUTOSTART_GAME
+#include "tgstation.dme"
+#include "modular_babylon/code/state.dm"
+#include "modular_babylon/code/persistence.dm"
+#include "modular_babylon/code/session.dm"
+#include "modular_babylon/code/drone_recovery.dm"
+#include "modular_babylon/code/control.dm"
+#ifdef BABYLON_TESTING
+#include "modular_babylon/code/testing.dm"
+#endif

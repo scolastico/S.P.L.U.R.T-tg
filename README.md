@@ -1,148 +1,94 @@
-<p align="center">
-<img width="539" height="200" alt="splurtlogo" src="https://github.com/user-attachments/assets/69856f7c-58db-4927-a03a-717ec2aec6d6" />
-</p>
+# Babylon13
 
-## SPLURT Station (Bubberstation Downstream)
+> **Work in progress — not ready to use or host publicly.**
+> This is an experimental foundation, not a released game or a production
+> persistence service. Do not entrust an irreplaceable world to it.
 
-[![CI Suite](https://github.com/SPLURT-Station/S.P.L.U.R.T-tg/actions/workflows/ci_suite.yml/badge.svg)](https://github.com/SPLURT-Station/S.P.L.U.R.T-tg/actions/workflows/ci_suite.yml)
+Babylon13 is a fork of [S.P.L.U.R.T.](https://github.com/SPLURT-Station/S.P.L.U.R.T-tg)
+for developing persistent Babylon building worlds. It keeps upstream Git
+history and uses an optional build plus a separate `modular_babylon` module
+so upstream changes can continue to be merged.
 
-[![resentment](.github/images/badges/built-with-resentment.svg)](.github/images/comics/131-bug-free.png) [![technical debt](.github/images/badges/contains-technical-debt.svg)](.github/images/comics/106-tech-debt-modified.png) [![forinfinityandbyond](.github/images/badges/made-in-byond.gif)](https://www.reddit.com/r/SS13/comments/5oplxp/what_is_the_main_problem_with_byond_as_an_engine/dclbu1a)
+## Groundwork currently included
 
-| Website                     | Link                                                                                                                                   |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Git / GitHub cheatsheet     | [https://www.notion.so/Git-GitHub-61bc81766b2e4c7d9a346db3078ce833](https://www.notion.so/Git-GitHub-61bc81766b2e4c7d9a346db3078ce833) |
-| Maintainer SOP              | [./modular_zubbers/maint-sop.md](./modular_zubbers/maint-sop.md)                                                                       |
-| Guide to Modularization     | [./modular_zzplurt/readme.md](./modular_zzplurt/readme.md)                                                                             |
-| Website                     | [https://splurt.space](https://splurt.space)                                                                                           |
-| Code                        | [https://github.com/SPLURT-Station/S.P.L.U.R.T-tg](https://github.com/SPLURT-Station/S.P.L.U.R.T-tg)                                   |
-| Wiki                        | [https://wiki.splurt.space](https://wiki.splurt.space)                                                                                           |
-| Codedocs                    | [https://splurt-station.github.io/S.P.L.U.R.T-tg](https://splurt-station.github.io/S.P.L.U.R.T-tg)                                                   |
-| S.P.L.U.R.T Station Discord | [https://discord.gg/wynHVMzHzC](https://discord.gg/wynHVMzHzC)                                                                         |
-| Coderbus Discord            | [https://discord.gg/Vh8TJp9](https://discord.gg/Vh8TJp9)                                                                               |
+- Construction, nested inventories, stock parts, materials, power cells,
+  research, machine settings, and exact saved gas quantities/temperatures.
+- Structural restoration before pipe/power initialization, followed by full
+  restoration before the simulation starts.
+- Drone appearance, airlock electronics/cycle groups, vent settings and alarm
+  links, solar hardware/tracking, and active modular-computer programs.
+- Fifteen-minute autosaves with 30/10/5-second warnings and a “now” notice one
+  second before capture. A short consistent-snapshot pause still occurs.
+- Fresh-map cleanup of unused Babylon drone shells, a 60-second respawn
+  cooldown that survives saves, and confirmed self-destruct with inventory
+  drops.
+- Authenticated checkpoint status/save/stop controls. Arbitrary live mutation
+  tools are compiled only into the explicitly unsafe integration-test build.
 
-This is S.P.L.U.R.T Station's downstream fork of bubberstation, which is in turn a fork of TG (formerly skyrat).
+These features were ported from a local prototype. The fork still needs
+broader validation, save-schema evolution and failure recovery work.
 
-**Please note that this repository contains sexually explicit content and is not suitable for those under the age of 18.**
+## Scope and limitations
 
-Space Station 13 is a paranoia-laden round-based roleplaying game set against the backdrop of a nonsensical, metal death trap masquerading as a space station, with charming spritework designed to represent the sci-fi setting and its dangerous undertones. Have fun, and survive!
+The current prototype supports **one configured BYOND owner and one world per
+process**. It is not a multiplayer implementation. A lobby, world creation,
+membership/permissions, private/password/public visibility, process management,
+and synthetic-body progression have not been implemented; their design is a
+separate next step.
 
-As of our recent split from Skyrat, a lot of codedocs/modularization guides need to be rewritten. Until it is done expect some wait time with larger refactors. You are also free to edit any Skyrat files
+The checkpoint is not a complete memory image. Arbitrary mob types, organs/DNA,
+all temporary effects, timers, event/antagonist state, and every machine-specific
+datum are not guaranteed to persist. Only the Babylon station level is saved;
+support maps are regenerated. Treat restores as experimental and retain backups.
 
-## Contribution Rules and Guidelines
+The local owner's world, credentials, BYOND binaries, compiled artifacts, and
+personal launch/configuration files are **not** included. Old private saves are
+not an advertised migration path. No one-off reactor settings, door labels or
+object-ID repairs are applied to new worlds.
 
-**1. Do Not Be A Dick**
+## Developer entry points
 
-- The S.P.L.U.R.T. main repository is run by and contributed by volunteers and hobbyists. Please be considerate with the people who help maintain our codebase. We reserve the right to permanently remove anyone who does not show both our contributors and maintainers common decency.
-- S.P.L.U.R.T. does not operate a strict "goodboy" points system or have defined goals, and anyone is welcome to contribute to this project. That being said, the maintainers of this project are free to curate comments as seen fit to uphold a respectful environment.
+- `babylon.dme`: opt-in Babylon build; includes upstream `tgstation.dme`.
+- `babylon-test.dme`: local test build with privileged inspection/mutation tools.
+  **Never expose it to untrusted clients.**
+- `modular_babylon/code/`: persistence, session, recovery and control modules.
+- `_maps/babylon13.json`: standalone map configuration.
+- `tools/babylon/Prepare-World.ps1`: select a checkpoint or copy the original
+  upstream wreck into the ignored runtime map before starting a stopped server.
 
-**2. Modularization Standards Will be Upheld**
+Use the BYOND version and other dependencies pinned in `dependencies.sh` and
+follow upstream's build/dependency instructions in [README.upstream.md](README.upstream.md).
+An experimental local workflow, from the repository directory, is:
 
-- This codebase is a active downstream to Bubberstation with frequent upstream merges.
-- Modularization is key to attain code stability, please read our [modularization guide](./modular_zzplurt/readme.md) for more information, or ask any of our maintainers in our discord.
+```powershell
+powershell -File tools/babylon/Prepare-World.ps1
+# Compile babylon.dme using the pinned Dream Maker.
+# Supply your own local server configuration, including a fresh COMMS_KEY.
+DreamDaemon babylon.dmb 1339 -ip 127.0.0.1 -trusted -close -params "config-directory=babylon-config&babylon-owner=YOUR_BYOND_CKEY"
+```
 
-**3. The Licensing is Non-negotiable**
+This is a developer example, not a turnkey hosting guide. Normalize the owner
+to a BYOND ckey; never publish your configuration or comms key. No credentials
+are supplied by the project. Do not run map preparation against a live world.
 
-- You are free to take, redistribute, modify, and readapt any code or commit found on this repository.
-- All code files are under **GNU AGPL V3**
-- All asset files (images and sound) are **CC-BY-SA 3.0** unless otherwise stated
-- The license information, including the MIT license and its exceptions, can be found at the bottom of this readme.
-- What does this mean to our contributors? **The** [GNU AGPL V3](https://www.gnu.org/licenses/agpl-3.0.html) **licensing on this codebase is non-negotiable** and **irrevocable** the moment you open a PR. We are incapable of privatizing this codebase and you are incapable of restricting your code contributions even if you close the PR. Do not open a contribution if you do not feel comfortable with your code being permanent across the entirety of the community. **All contributions are preserved in commit history**
-- What does this mean to our spriters and sound designers? [CC-BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) or [CY-BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc/3.0/deed.en) (must be declared appropriately) **are the only licenses that this project will accept.**
-- It is prohibited to use the attribution requirement to [suggest that you endorse or support a particular use](https://creativecommons.org/faq/#do-i-need-to-be-aware-of-anything-else-when-providing-attribution) of your assets.
-- You are entitled to credit yourself with comments and you are entitled to waive the attribution requirement choosing not to be identified as the creator if you wish.
-- If you do not like how your assets were modified or used, it is required that the other person [remove the attribution information upon request](https://wiki.creativecommons.org/wiki/License_Versions#Licensors_may_request_removal_of_attribution).
-- Modifications or adaptions must disclose the source, the author, and [any changes you've made](https://wiki.creativecommons.org/wiki/License_Versions#Modifications_and_adaptations_must_be_indicated).
-- Goonstation code is incompatible with this codebase due to its licensing.
+Generated checkpoints live under `data/babylon/saves/`; `latest.json` selects
+the committed generation. Each contains `map.dmm` and `state.json`. Resume
+preparation writes `data/babylon/resume-state.json` and
+`_maps/babylon/active.dmm`; both are ignored by Git.
 
-_Credit: [Goonstation contribution guidelines](https://hackmd.io/@goonstation/docs/%2F%40goonstation%2Fcontribute#What-if-I-change-my-mind-about-my-contributions-being-published)_
+## Keeping the fork mergeable
 
-To forward any licensing concerns, please open an issue report or pull request. Alternatively, you can join our [Discord](https://discord.gg/AvjrTqnqEx) and contact the project leaders.
+All inherited GitHub Actions workflow YAML files have a `.disabled` filename
+suffix. No replacement CI/deployment automation is enabled yet. Newly merged
+upstream workflows must also be disabled until they are reviewed for this fork.
 
-## Modularization and codedocs note
+See [UPSTREAM_HOOKS.md](modular_babylon/UPSTREAM_HOOKS.md) for the six small,
+compile-guarded integration patches and the merge/validation checklist. Normal
+SPLURT builds do not include the Babylon module.
 
-### Modularization
+## Upstream and licensing
 
-New modularized code should be put in the modular_zubbers folder. This is to keep our unique code seperate, easier to maintain, and helps future contributors find things. It is expected that you call into the override functions to reduce the amount of code we overwrite and edit from our upstream source.
-
-### Spriting
-
-For the sake of consistency, we typically ask that sprites be drawn such that it aligns with the look and feel of other sprites. We understand that some items may not be perfect and that's okay, but sprites ideally should do their best to match others for the sake of consistency.
-
-Also consider that when doing clothing sprites, teshari themselves use different sprites (requiring a bit more effort) as well as digitigrades legs. Otherwise, these sprites will either be entirely broken or look heavily off if not done properly.
-
-### Configuration
-
-Most of our [config files](https://github.com/Bubberstation/config/tree/master) are open source, and therefore can be edited (though you should have good reason to do so)
-
-## Important note - TEST YOUR PULL REQUESTS
-
-You are responsible for the testing of your content. You should not mark a pull request ready for review until you have actually tested it. If you require a separate client for testing, you can use a guest account by logging out of BYOND and connecting to your test server.
-
-Testing your changes is super critical for multiple reasons.
-
-1. It makes sure your features/changes actually work.
-2. It helps reduce the chance that something else has broken
-3. Provides a first peek at the changes before its actually in the game
-
-This is why we require notes on testing, and in most instances, videos or screenshots to help support that.
-
-Test notes can be a step-by-step set of instructions. But for visual content, we require either screenshots of how something renders, a video of the content being interacted with/used, or a video with sound to show audio changes.
-
-Ideally, test notes are you providing people with confidence that your change works and has not interfered with other bits of code.
-
-## DOWNLOADING
-
-[Downloading](.github/guides/DOWNLOADING.md)
-
-[Running on the server](.github/guides/RUNNING_A_SERVER.md)
-
-[Maps and Away Missions](.github/guides/MAPS_AND_AWAY_MISSIONS.md)
-[Maps and Away Missions](.github/guides/MAPS_AND_AWAY_MISSIONS.md)
-
-## Compilation
-
-Find `BUILD.bat` here in the root folder of tgstation, and double click it to initiate the build. It consists of multiple steps and might take around 1-5 minutes to compile.
-
-**The long way**. Find `bin/build.cmd` in this folder, and double click it to initiate the build. It consists of multiple steps and might take around 1-5 minutes to compile. If it closes, it means it has finished its job. You can then [setup the server](.github/guides/RUNNING_A_SERVER.md) normally by opening `tgstation.dmb` in DreamDaemon.
-
-**Building tgstation in DreamMaker directly is deprecated and might produce errors**, such as `'tgui.bundle.js': cannot find file`.
-
-**[How to compile in VSCode and other build options](tools/build/README.md).**
-
-## Getting started
-
-<!-- For contribution guidelines refer to the [Guides for Contributors](.github/CONTRIBUTING.md). -->
-
-For getting started (dev env, compilation) see the HackMD document [here](https://hackmd.io/@tgstation/HJ8OdjNBc#tgstation-Development-Guide).
-
-For overall design documentation see [HackMD](https://hackmd.io/@tgstation).
-
-## Code Reviews
-
-We do not expect everyone to be an amazing coder or get something to work on the first try. PR's that are not in draft and are marked ready for review are open for comment and feedback.
-
-PR's should not attempt to fix or modify multiple unrelated concepts at the same time. If you are unsure, ask a maintainer if your PR should be split up.
-
-With each PR, please include a relevant, clear and descriptive title that within one line describes what the PR is about.
-
-Please also fill out the auto-generated fields with relevant information such as why something is good for the game. ("Because" is not a valid reason)
-
-Include test notes and other testing related details as mentioned previously.
-
-Also for any player facing changes, please include a changelog with any relevant changelog types and items that were modified in the PR.
-
-## LICENSE
-
-All code after [commit 333c566b88108de218d882840e61928a9b759d8f on 2014/12/31 at 4:38 PM PST](https://github.com/tgstation/tgstation/commit/333c566b88108de218d882840e61928a9b759d8f) is licensed under [GNU AGPL v3](https://www.gnu.org/licenses/agpl-3.0.html).
-
-All code before [commit 333c566b88108de218d882840e61928a9b759d8f on 2014/12/31 at 4:38 PM PST](https://github.com/tgstation/tgstation/commit/333c566b88108de218d882840e61928a9b759d8f) is licensed under [GNU GPL v3](https://www.gnu.org/licenses/gpl-3.0.html).
-(Including tools unless their readme specifies otherwise.)
-
-See LICENSE and GPLv3.txt for more details.
-
-The TGS DMAPI is licensed as a subproject under the MIT license.
-The TGS DMAPI is licensed as a subproject under the MIT license.
-
-See the footer of [code/\_\_DEFINES/tgs.dm](./code/__DEFINES/tgs.dm) and [code/modules/tgs/LICENSE](./code/modules/tgs/LICENSE) for the MIT license.
-
-All assets including icons and sound are under a [Creative Commons 3.0 BY-SA license](https://creativecommons.org/licenses/by-sa/3.0/) unless otherwise indicated.
+This project builds on the work of SPLURT, Bubberstation, Skyrat, /tg/station,
+and their contributors. Existing source and asset licenses and attribution
+requirements continue to apply. See [LICENSE](LICENSE) and the preserved
+[upstream README](README.upstream.md) for the original notices and credits.

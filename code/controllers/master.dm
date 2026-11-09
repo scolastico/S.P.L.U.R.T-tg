@@ -593,6 +593,10 @@ ADMIN_VERB(cmd_controller_view_ui, R_SERVER|R_DEBUG, "Controller Overview", "Vie
 // Main loop.
 /datum/controller/master/proc/Loop(init_stage)
 	. = -1
+#ifdef BABYLON_BUILDER // BABYLON13: see modular_babylon/UPSTREAM_HOOKS.md
+	if(init_stage == INITSTAGE_MAX && world.params["babylon-hold"] == "1")
+		processing = FALSE
+#endif
 	//Prep the loop (most of this is because we want MC restarts to reset as much state as we can, and because
 	// local vars rock
 
@@ -673,6 +677,12 @@ ADMIN_VERB(cmd_controller_view_ui, R_SERVER|R_DEBUG, "Controller Overview", "Vie
 
 		if (init_stage != init_stage_completed)
 			return MC_LOOP_RTN_NEWSTAGES
+#ifdef BABYLON_BUILDER // BABYLON13: see modular_babylon/UPSTREAM_HOOKS.md
+		// World reconstruction must finish before any game simulation runs.
+		if(init_stage >= INITSTAGE_MAIN && (!GLOB.babylon_save?.prepared || init_stage_completed < INITSTAGE_MAX))
+			sleep(1 TICKS)
+			continue
+#endif
 		if (processing <= 0)
 			current_ticklimit = TICK_LIMIT_RUNNING
 			sleep(1 SECONDS)

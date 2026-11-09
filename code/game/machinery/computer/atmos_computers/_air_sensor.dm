@@ -40,6 +40,11 @@
 /obj/machinery/air_sensor/post_machine_initialize()
 	. = ..()
 
+#ifdef BABYLON_BUILDER // BABYLON13: see modular_babylon/UPSTREAM_HOOKS.md
+	// Saved links/settings take precedence over a fresh map's auto configuration.
+	if(babylon_save_id && GLOB.babylon_save?.resume_records[babylon_save_id])
+		return
+#endif
 	//auto connect to any inlet & outlet devices within a 4 diameter radius from this sensor
 	for(var/obj/machinery/atmospherics/components/unary/device in oview(4, src))
 		if(inlet_id && outlet_id)
