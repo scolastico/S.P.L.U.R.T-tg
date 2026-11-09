@@ -31,6 +31,10 @@ so upstream changes can continue to be merged.
   appearances and respawn state. Empty worlds save and stop automatically.
 - Configurable checkpoint retention (four per world by default), with owner/
   admin rollback of stopped worlds and confirmation before deleting newer saves.
+- Empty replacement chassis, a Return to lobby HUD action, a focused ghost HUD,
+  and a Babylon-specific awakening with six discoverable lore papers.
+- Immediate join progress, clearly marked lobby tabs/world states, and automatic
+  cleanup of unused stopped worlds after a configurable 60 days (0 disables it).
 
 These features were ported from a local prototype. The fork still needs
 broader validation, save-schema evolution and failure recovery work.

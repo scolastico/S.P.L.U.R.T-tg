@@ -68,6 +68,16 @@ multi-client load certification.
 
 ## Repeating the smoke test
 
+The 2026-11-10 builder update additionally passed 38 Python tests, including
+inactivity expiry, interrupted deletion, migration of existing activity data,
+path confinement, and preservation of the upstream map under six lore additions.
+The production, test and lobby builds compile with zero errors/warnings.
+Native smoke checks cover empty replacement equipment through the real respawn
+path, Return-before-Self-destruct action order, removal of ghost role/minigame
+HUD entries, retained DNR/re-entry, zero physical cafe turfs, and all six paper
+items surviving save/reload. The lobby's selected tab was checked in DreamSeeker;
+Join displayed its loading panel immediately in a real client before startup.
+
 Use a **disposable checkout**, supply the pinned BYOND/native dependencies and
 build the TGUI assets. Compile `babylon-test.dme` first. Supply your own local
 configuration directory with a fresh COMMS_KEY; do not commit it.

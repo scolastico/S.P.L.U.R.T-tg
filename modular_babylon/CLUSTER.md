@@ -64,6 +64,9 @@ lobby before stopping the cluster processes. Do not kill a child to save it.
   and require a password for guests. Explicit members bypass passwords.
 - Guests can join worlds that are already running, but cannot start stopped
   worlds. Only owners, members and server admins can start a world.
+- The selected lobby tab has a heading, description and active highlight.
+  World cards distinguish online/offline/startup/error states and show the
+  player's role. Join immediately displays progress before server preparation.
 - Owners create worlds, edit settings while stopped, grant/remove members,
   and request an immediate save-and-stop. Admins can see/join/manage every
   world regardless of visibility/password. These permissions do not grant
@@ -99,6 +102,13 @@ lobby before stopping the cluster processes. Do not kill a child to save it.
   Rollback atomically changes the current checkpoint; a recovery journal
   completes interrupted deletions before another start. The next Join stages
   the selected map and state, replacing cached startup data.
+- `delete_unused_worlds_after_days` defaults to **60**; set **0** to disable
+  automatic expiry. The supervisor checks hourly and only expires stopped
+  worlds. Starting, joining, connected players and owner management actions
+  update activity; merely browsing the list does not. Expiry removes the world,
+  all checkpoints and memberships. A persistent deletion queue safely resumes
+  interrupted filesystem cleanup. Existing databases migrate activity from
+  their creation time and recorded actions.
 
 ## Persistence and size
 
@@ -115,8 +125,26 @@ reconnect the player receives their saved drone or pending respawn state.
 An enclosed drone is restored on its enclosing floor tile, preserving its
 inventory without trying to reconstruct an active ventcrawl/container session.
 
+Only a player's first chassis receives starter equipment. Respawn constructs
+an empty replacement, including no replacement bag or holiday hat. Recover
+dropped tools, craft replacements, or restore/reset the world if necessary.
+The Return to lobby HUD action comes before Self-destruct and is also available
+while waiting as a ghost. Returning leaves the body and inventory in the world.
+Ghost spawner/minigame interfaces are disabled; DNR and corpse re-entry remain.
+
+Fresh-map preparation derives the upstream wreck and adds six normal readable
+paper items using `_maps/babylon/lore.json` and `map_overlay.py`. Existing saved
+builds are not overwritten or reseeded. The papers introduce Project Mnemosyne,
+Dr. Mara Vale's recall, evacuation and the continuity watchdog. Their types and
+locations persist through saves; there is no separate repeatable paper spawner.
+The standalone preparation script now also requires Python 3.11+ (`-Python`
+can supply its path; otherwise it uses uv's Python or the installed `python`).
+
 Babylon uses one station floor with no vertical adjacency, no mining map,
 no generated space/away-mission levels, events, gamemode tracks or weather.
+`ABSOLUTE_MINIMUM` disables the separate upstream Interlink/cafe loader and its
+associated round-start shuttles. Lavaland is not loaded; a future exploration/
+shuttle extension can add it without reintroducing unrelated station maps.
 Atmospherics, power, machinery, research and construction remain active.
 Minimal CentCom/reservation support levels and upstream plane bookkeeping
 remain because SS13 systems depend on them. This does not yet remove all

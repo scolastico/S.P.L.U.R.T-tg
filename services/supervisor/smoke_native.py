@@ -95,6 +95,13 @@ def main():
         world = api("create", dict(name="Native smoke", visibility="private"))["id"]
         run = wait_ready(world)
         assert topic(run["port"], run["secret"], "status")["players"] == []
+        experience = call(run, "session", "test_builder_experience")
+        experience = {entry["entry"]: entry["value"] for entry in experience["entries"]}
+        for key in ("replacement_items", "replacement_storage", "replacement_head", "station_confinement", "physical_cafe_turfs"):
+            assert experience[key] == 0, experience
+        for key in ("spawners_hidden", "minigames_hidden", "dnr_present", "reenter_present", "return_before_destruct"):
+            assert experience[key], experience
+        assert experience["lore_papers"] == 6, experience
         player = call(run, "session", "ensure_player", ["smokefriend"])
         friend_ref = player["ref"]
         fields = debug(run, "inspect", dict(target=friend_ref, vars=["builder"]))["vars"]
@@ -129,10 +136,19 @@ def main():
         fields = debug(run, "inspect", dict(target=restored_friend, vars=["builder", "respawn_pending", "respawn_ready_at"]))["vars"]
         assert fields["builder"]["name"] == "Second persistent drone", fields
         assert fields["respawn_pending"], fields
+        papers = debug(run, "find", dict(type="/obj/item/paper/babylon", limit=100))["matches"]
+        assert len(papers) == 6, papers
+        # Exercise the actual respawn path, not only the replacement initializer.
+        debug(run, "set_var", dict(target=restored_friend, var="respawn_ready_at", value=0))
+        assert call(run, restored_friend, "respawn_builder"), "Respawn failed"
+        replacement = debug(run, "inspect", dict(target=restored_friend, vars=["builder"]))["vars"]["builder"]["ref"]
+        equipment = debug(run, "inspect", dict(target=replacement, vars=["internal_storage", "head", "contents"]))["vars"]
+        assert not equipment["internal_storage"] and not equipment["head"], equipment
+        assert not any(isinstance(e["entry"], dict) and e["entry"].get("type", "").startswith("/obj/item") for e in equipment["contents"]["entries"]), equipment
         stop(world)
         generation2 = json.loads((saved / "latest.json").read_text())["generation"]
         after = json.loads((saved / generation2 / "state.json").read_text())
-        assert after["players"]["smokefriend"]["builder"] == friend_id
+        assert after["players"]["smokefriend"]["builder"] != friend_id
         objects = {r["id"]: r for r in after["records"]}
         inventory = [r for r in before["records"] if r.get("parent") == friend_id]
         for item in inventory:
@@ -140,6 +156,8 @@ def main():
         report = dict(passed=True, real_child_start_stop=True, http_ticket_redemption=True,
                       replay_rejected=True, admin_private_bypass=True, multiplayer_roster=True,
                       second_inventory=True, second_respawn=True, enclosed_drone=True,
+                      empty_respawn=True, ghost_hud_trimmed=True, physical_cafe_turfs=0,
+                      lore_papers=6, return_button_order=True,
                       generations=[generation, generation2])
         (data / "result.json").write_text(json.dumps(report, indent=2))
         print(json.dumps(report, indent=2))

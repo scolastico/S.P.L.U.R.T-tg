@@ -62,20 +62,40 @@ var/global/list/lobby_config
 		return list("error" = "Invalid supervisor response.")
 	return result
 
+/mob/lobby/proc/page_start()
+	return "<!doctype html><html><head><meta charset='utf-8'><meta http-equiv='X-UA-Compatible' content='IE=edge'><style>[file2text('modular_babylon/lobby/style.css')]</style><script>[file2text('modular_babylon/lobby/loading.js')]</script></head><body>"
+
+/mob/lobby/proc/loading_panel(world_name, stage)
+	return "<div class='loading-shell'><section class='loading' role='status' aria-live='polite' aria-busy='true'><div class='spinner'></div><div class='brand'>BABYLON // WORLD CONNECTION</div><h1 id='loading-world'>[html_encode(world_name)]</h1><p>[html_encode(stage)]</p><small>Keep this client open. Starting a sleeping world can take a little while.</small></section></div>"
+
+/mob/lobby/proc/show_loading(world_name, stage)
+	if(client)
+		src << browse("[page_start()][loading_panel(world_name, stage)]</body></html>", "window=lobby.browser")
+
 /mob/lobby/proc/show_browser()
 	var/list/result = api("list")
-	if(!client)
+	// A poll that started before Join must not overwrite its loading screen.
+	if(!client || busy)
 		return
-	var/content = {"<!doctype html><html><head><meta charset='utf-8'><meta http-equiv='X-UA-Compatible' content='IE=edge'><style>
-body{background:#171d28;color:#e4eaf5;font:16px Segoe UI,Arial;padding:24px}a{color:#9ad9ff;margin-right:16px}section{background:#253044;padding:18px;margin:14px 0;border-radius:8px}small{color:#bbc8da}h1{margin:0 0 12px}.notice{color:#ffd890}p{line-height:1.5}
-</style></head><body><h1>Babylon 13</h1><p>Build a station. Continue whenever you like.</p>"}
-	content += "<p><a href='?src=\ref[src];action=create'>New game</a> <a href='?src=\ref[src];action=filter;filter=active'>Active worlds</a> <a href='?src=\ref[src];action=filter;filter=mine'>My worlds</a> <a href='?src=\ref[src];action=filter;filter=shared'>Shared with me</a> <a href='?src=\ref[src];action=filter;filter=all'>Browse all</a></p>"
+	var/content = "[page_start()]<main id='browser-content'><div class='brand'>BABYLON 13</div><div class='top'><h1>Your station, your next chapter.</h1><a class='button primary' href='?src=\ref[src];action=create'>+ New game</a></div><nav class='tabs' aria-label='World categories'>"
+	var/list/tabs = list("active" = "Active worlds", "mine" = "My worlds", "shared" = "Shared with me", "all" = "Browse worlds")
+	for(var/tab in tabs)
+		var/selected = view_filter == tab
+		content += "<a class='[selected ? "active" : ""]' aria-current='[selected ? "page" : "false"]' href='?src=\ref[src];action=filter;filter=[tab]'>[tabs[tab]]</a>"
+	content += "</nav><h2 class='page-heading'>[tabs[view_filter]]</h2>"
+	var/list/descriptions = list("active" = "Worlds currently running, starting or stopping. Join an online world to continue building.", "mine" = "Worlds you own. Start an offline world, change its settings, or restore a saved checkpoint.", "shared" = "Worlds where you have membership. You can start these even when the owner is away.", "all" = "Worlds available to your account. Guests can join online worlds; owners, members and admins can start offline worlds.")
+	content += "<p class='muted'>[descriptions[view_filter]]</p>"
+	if(result["admin"])
+		content += "<p><span class='badge'>Server administrator</span> <small>Your account can see private worlds and bypass their admission restrictions.</small></p>"
 	if(notice)
-		content += "<p class='notice'>[html_encode(notice)]</p>"
+		content += "<p class='notice' role='status'>[html_encode(notice)]</p>"
 	if(result["error"])
-		content += "<p>[html_encode(result["error"])]</p>"
+		content += "<p class='notice'>[html_encode(result["error"])]</p>"
 	else
 		cards = list()
+		var/rendered = ""
+		var/visible = 0
+		var/list/states = list("running" = "Online", "stopped" = "Offline", "starting" = "Starting", "stopping" = "Stopping", "error" = "Needs attention")
 		for(var/list/card in result["worlds"])
 			cards[card["id"]] = card
 			if(view_filter == "active" && card["state"] == "stopped")
@@ -84,30 +104,44 @@ body{background:#171d28;color:#e4eaf5;font:16px Segoe UI,Arial;padding:24px}a{co
 				continue
 			if(view_filter == "shared" && card["role"] != "member")
 				continue
+			visible++
 			var/id = card["id"]
-			content += "<section><b>[html_encode(card["name"])]</b><p>[html_encode(card["description"])]</p><small>Owner: [html_encode(card["owner"])] | [html_encode(card["visibility"])] | [html_encode(card["state"])] | [card["players"]]/[card["max_players"]] players | Your role: [html_encode(card["role"])]<br>Last save: [html_encode(card["last_save"] || "None yet")]</small><p>"
+			var/world_name = html_encode(card["name"])
+			rendered += "<section class='card'><div class='card-head'><h2>[world_name]</h2><span class='badge [html_encode(card["state"])]'>[states[card["state"]] || "Unknown"]</span></div><p>[html_encode(card["description"] || "A Babylon station waiting to be rebuilt.")]</p><div class='meta'>Owner: [html_encode(card["owner"])] &nbsp; | &nbsp; Access: [html_encode(card["visibility"])] &nbsp; | &nbsp; [card["players"]]/[card["max_players"]] players online<br>Your role: <b>[html_encode(card["role"])]</b> &nbsp; | &nbsp; Last active: [html_encode(card["last_active"] || "Unknown")]<br>Last save: [html_encode(card["last_save"] || "None yet")]</div><div class='actions'>"
 			if(card["role"] != "guest" || card["state"] != "stopped")
-				content += "<a href='?src=\ref[src];action=join;world=[id]'>Join</a>"
+				rendered += "<a class='button primary' data-world='[world_name]' onclick='return beginJoin(this)' href='?src=\ref[src];action=join;world=[id]'>[card["state"] == "stopped" ? "Start and join" : "Join world"]</a>"
 			else
-				content += "<small>Offline — an owner, member or admin must start this world.</small>"
+				rendered += "<small>An owner, member or admin must start this world.</small>"
 			if(card["role"] == "owner" || card["role"] == "admin")
 				if(card["state"] == "stopped")
-					content += "<a href='?src=\ref[src];action=edit;world=[id]'>Edit settings</a><a href='?src=\ref[src];action=member;world=[id]'>Members</a><a href='?src=\ref[src];action=rollback;world=[id]'>Saved checkpoints / rollback</a>"
+					rendered += "<a class='button' href='?src=\ref[src];action=edit;world=[id]'>Edit settings</a><a class='button' href='?src=\ref[src];action=member;world=[id]'>Members</a><a class='button' href='?src=\ref[src];action=rollback;world=[id]'>Saved checkpoints / rollback</a>"
 				else
-					content += "<a href='?src=\ref[src];action=stop;world=[id]'>Force stop / return players to lobby</a>"
+					rendered += "<a class='button danger' href='?src=\ref[src];action=stop;world=[id]'>Save and force stop</a>"
 			if(card["error"])
-				content += "<p class='notice'>[html_encode(card["error"])]</p>"
-			content += "</p></section>"
+				rendered += "<p class='notice'>[html_encode(card["error"])]</p>"
+			rendered += "</div></section>"
+		content += "<div class='count'>Showing [visible] world[visible == 1 ? "" : "s"]</div>"
+		if(!visible)
+			var/list/empty = list("active" = "No worlds are active. Open My worlds or Browse worlds to find a station to start.", "mine" = "You have no worlds yet. Choose New game to create your first station.", "shared" = "No worlds have been shared with your account yet. Ask an owner to add you as a member.", "all" = "No worlds are available. Create one with New game, or ask an owner for membership.")
+			content += "<div class='empty'>[empty[view_filter]]</div>"
+		else
+			content += rendered
 		var/list/limits = result["limits"]
 		player_limit = limits["max_players_per_world"]
-		content += "<small>Server limits: [limits["max_running_worlds"]] running worlds; [limits["max_players_per_world"]] players per world; [limits["max_worlds_per_player"]] worlds and [limits["max_running_worlds_per_player"]] running worlds per owner.</small>"
-	content += "</body></html>"
+		var/expiry = result["delete_unused_worlds_after_days"]
+		var/expiry_text = expiry ? "Unused stopped worlds are deleted after [expiry] days." : "Automatic world expiry is disabled."
+		content += "<footer class='footer'>Server limits: [limits["max_running_worlds"]] running worlds; [limits["max_players_per_world"]] players per world; [limits["max_worlds_per_player"]] worlds and [limits["max_running_worlds_per_player"]] running worlds per owner.<br>Private worlds require membership. Your station continues from its last successful checkpoint.<br>[expiry_text]</footer>"
+	content += "</main><div id='join-loading'>[loading_panel("Preparing your world", "Contacting the supervisor and preparing your connection...")]</div></body></html>"
 	src << browse(content, "window=lobby.browser")
 
 /mob/lobby/Topic(href, list/params)
 	if(usr != src || !client || busy)
 		return
 	busy = 1
+	if(params["action"] == "join")
+		var/list/card = cards[params["world"]]
+		show_loading(card ? card["name"] : "Your world", "Contacting the supervisor and preparing your connection...")
+		sleep(1)
 	try
 		handle_action(params)
 	catch
@@ -170,8 +204,7 @@ body{background:#171d28;color:#e4eaf5;font:16px Segoe UI,Arial;padding:24px}a{co
 				src << link(result["address"])
 				notice = "Connection offered. If you cancelled it, click Join again."
 				return
-			notice = "Starting world and restoring checkpoint…"
-			show_browser()
+			show_loading(card["name"], "Starting world and restoring its checkpoint...")
 			sleep(20)
 		notice = "Startup is taking longer than expected. Check the world status and try Join again."
 	else if(action == "rollback")

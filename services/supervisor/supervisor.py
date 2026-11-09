@@ -21,6 +21,8 @@ from urllib.parse import parse_qs, urlsplit
 
 from protocol import topic
 from checkpoints import Checkpoints, CheckpointError
+from map_overlay import prepare_fresh_map
+from world_storage import delete_world_data
 
 
 class Denied(ValueError):
@@ -57,7 +59,7 @@ class Driver:
         root = Path(self.config["data_directory"]).resolve() / "worlds" / world["id"]
         root.mkdir(parents=True, exist_ok=True)
         # Separate mutable assets/config per world. Do not copy source saves, logs or credentials.
-        for name in ("_maps", "strings", "icons", "sound", "html", "tgui/public",
+        for name in ("_maps", "strings", "icons", "sound", "html", "tgui/public", "build/behavior_trees",
                      "code", "modular_skyrat", "modular_zubbers", "modular_zzplurt"):
             source = template / name
             if source.exists():
@@ -88,7 +90,7 @@ class Driver:
             shutil.copy2(checkpoint / "map.dmm", active)
             shutil.copy2(checkpoint / "state.json", resume)
         else:
-            shutil.copy2(template / "_maps/RandomRuins/SpaceRuins/skyrat/drones_derelict.dmm", active)
+            prepare_fresh_map(template, active)
             resume.unlink(missing_ok=True)
         return root
 
@@ -174,13 +176,48 @@ class Supervisor:
               password_hash TEXT, admin INTEGER);
             CREATE TABLE IF NOT EXISTS sessions (ckey TEXT PRIMARY KEY, world TEXT, run TEXT);
             CREATE TABLE IF NOT EXISTS audit (at REAL, actor TEXT, action TEXT, world TEXT);
+            CREATE TABLE IF NOT EXISTS world_deletions (world TEXT PRIMARY KEY);
         """)
+        columns = {row[1] for row in self.db.execute("PRAGMA table_info(worlds)")}
+        if "last_used" not in columns:
+            self.db.execute("ALTER TABLE worlds ADD COLUMN last_used REAL")
+        self.db.execute("UPDATE worlds SET last_used=max(created,coalesce((SELECT max(at) FROM audit WHERE world=worlds.id),created)) WHERE last_used IS NULL")
         self.db.commit()
         self.stop_workers = set()
+        self.next_cleanup = 0
         self.checkpoints = Checkpoints(config["data_directory"], config.get("kept_save_points_per_world", 4))
         # Running children are reconciled by tick; stopped worlds have no writers.
         for row in self.db.execute("SELECT id FROM worlds WHERE id NOT IN (SELECT world FROM runs)"):
             self.maintain_checkpoints(row[0])
+
+    def cleanup_unused_worlds(self):
+        with self.lock, self.db:
+            if self.clock() < self.next_cleanup:
+                return
+            self.next_cleanup = self.clock() + 3600
+            days = self.config.get("delete_unused_worlds_after_days", 60)
+            if days:
+                expired = self.db.execute("SELECT id FROM worlds WHERE last_used<=? AND id NOT IN (SELECT world FROM runs)",
+                                          (self.clock() - days * 86400,)).fetchall()
+                for row in expired:
+                    world = row[0]
+                    # Commit deletion intent and revoke access before touching the files.
+                    self.db.execute("INSERT OR IGNORE INTO world_deletions VALUES(?)", (world,))
+                    for table in ("members", "tickets", "sessions"):
+                        self.db.execute(f"DELETE FROM {table} WHERE world=?", (world,))
+                    self.db.execute("DELETE FROM worlds WHERE id=?", (world,))
+                    self.audit("supervisor", "expire_unused_world", world)
+                    self.checkpoints.maintained.pop(world, None)
+            pending = [row[0] for row in self.db.execute("SELECT world FROM world_deletions")]
+        # Deleting runtime assets can take time. Do not hold the admission/database lock.
+        for world in pending:
+            try:
+                delete_world_data(self.config["data_directory"], world)
+            except (OSError, ValueError):
+                print(f"World expiry cleanup pending for {world}; will retry", flush=True)
+                continue
+            with self.lock, self.db:
+                self.db.execute("DELETE FROM world_deletions WHERE world=?", (world,))
 
     def maintain_checkpoints(self, world, expected=None):
         try:
@@ -248,8 +285,10 @@ class Supervisor:
                     worlds[-1].update(role=role, state=run["state"] if run else "stopped",
                                       players=len(json.loads(run["players"])) if run else 0,
                                       last_save=run["last_save"] if run else self.last_save(world["id"]),
-                                      error=run["error"] if run else None)
+                                      error=run["error"] if run else None,
+                                      last_active=time.strftime("%Y-%m-%d %H:%M", time.localtime(world["last_used"])))
                 return {"ok": True, "worlds": worlds, "admin": actor in self.admins,
+                        "delete_unused_worlds_after_days": self.config.get("delete_unused_worlds_after_days", 60),
                         "limits": {k: v for k, v in self.config.items() if k.startswith("max_")}}
             if action == "create":
                 count = self.row("SELECT count(*) n FROM worlds WHERE owner=?", (actor,))["n"]
@@ -257,8 +296,8 @@ class Supervisor:
                     raise Denied("Your world limit has been reached")
                 fields = self.settings(data)
                 world_id = secrets.token_hex(16)
-                self.db.execute("INSERT INTO worlds VALUES(?,?,?,?,?,?,?,?)",
-                                (world_id, actor, *fields, self.clock()))
+                self.db.execute("INSERT INTO worlds(id,owner,name,description,visibility,password,max_players,created,last_used) VALUES(?,?,?,?,?,?,?,?,?)",
+                                (world_id, actor, *fields, self.clock(), self.clock()))
                 self.audit(actor, action, world_id)
                 return {"ok": True, "id": world_id}
             world = self.world(data.get("world"))
@@ -280,6 +319,7 @@ class Supervisor:
                     except CheckpointError as error:
                         raise Denied(str(error)) from None
                     self.db.execute("DELETE FROM tickets WHERE world=?", (world["id"],))
+                    self.db.execute("UPDATE worlds SET last_used=? WHERE id=?", (self.clock(), world["id"]))
                     self.audit(actor, "rollback:" + result["generation"], world["id"])
                     return result
                 elif action == "edit":
@@ -302,6 +342,7 @@ class Supervisor:
                     if run:
                         self.begin_stop(run)
                 self.audit(actor, action, world["id"])
+                self.db.execute("UPDATE worlds SET last_used=? WHERE id=?", (self.clock(), world["id"]))
                 return {"ok": True}
             if action != "join":
                 raise Denied("Unknown action")
@@ -362,6 +403,7 @@ class Supervisor:
         run = dict(id=secrets.token_hex(16), world=world["id"], port=port,
                    secret=secrets.token_urlsafe(32), state="starting", started=self.clock(), pid=None)
         self.db.execute("INSERT INTO runs(id,world,port,secret,state,started) VALUES(:id,:world,:port,:secret,:state,:started)", run)
+        self.db.execute("UPDATE worlds SET last_used=? WHERE id=?", (self.clock(), world["id"]))
         # Commit the launch intent before starting a child so supervisor restarts can reconcile it.
         self.db.commit()
         try:
@@ -394,6 +436,7 @@ class Supervisor:
                 raise Denied("World is full")
             self.db.execute("DELETE FROM tickets WHERE hash=?", (ticket["hash"],))
             self.db.execute("INSERT OR REPLACE INTO sessions VALUES(?,?,?)", (ckey(actor), world["id"], run_id))
+            self.db.execute("UPDATE worlds SET last_used=? WHERE id=?", (self.clock(), world["id"]))
             self.db.execute("UPDATE runs SET empty_since=NULL WHERE id=?", (run_id,))
             self.audit(ckey(actor), "admit", world["id"])
             return {"ok": True, "world": world["id"], "run": run_id, "role": role}
@@ -421,6 +464,7 @@ class Supervisor:
         threading.Thread(target=stop, daemon=True).start()
 
     def tick(self):
+        self.cleanup_unused_worlds()
         # Never hold the DB lock during network requests: a child may be redeeming a ticket.
         with self.lock:
             runs = [dict(r) for r in self.db.execute("SELECT * FROM runs")]
@@ -446,6 +490,8 @@ class Supervisor:
                 if not current:
                     continue
                 players = [ckey(p) for p in status.get("players", [])]
+                if players:
+                    self.db.execute("UPDATE worlds SET last_used=? WHERE id=?", (self.clock(), run["world"]))
                 state = current["state"]
                 if state == "starting" and status.get("ready"):
                     state = "running"
@@ -470,6 +516,9 @@ class Supervisor:
 def load_config(path):
     config = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     config.setdefault("kept_save_points_per_world", 4)
+    config.setdefault("delete_unused_worlds_after_days", 60)
+    if type(config["delete_unused_worlds_after_days"]) is not int or config["delete_unused_worlds_after_days"] < 0:
+        raise ValueError("delete_unused_worlds_after_days must be a nonnegative integer (0 disables expiry)")
     if config.get("listen_host") != "127.0.0.1":
         raise ValueError("The trusted API must bind to 127.0.0.1")
     if len(config.get("lobby_secret", "")) < 32 or config["lobby_secret"].startswith("REPLACE"):

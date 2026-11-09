@@ -5,6 +5,29 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 /datum/babylon_save/proc/test_supervisor_export(encoded_query)
 	return babylon_supervisor_request(json_decode(encoded_query))
 
+/datum/babylon_save/proc/test_builder_experience()
+	var/mob/living/basic/drone/babylon/replacement/empty = new(respawn_turf)
+	var/item_count = 0
+	for(var/obj/item/item in empty.contents)
+		item_count++
+	var/list/result = list("replacement_items" = item_count, "replacement_storage" = !!empty.internal_storage, "replacement_head" = !!empty.head, "station_confinement" = !!empty.GetComponent(/datum/component/stationstuck))
+	qdel(empty)
+	var/mob/dead/observer/ghost = new(respawn_turf)
+	var/datum/hud/ghost/babylon/hud = new(ghost)
+	result["spawners_hidden"] = !hud.screen_objects[HUD_GHOST_SPAWNERS]
+	result["minigames_hidden"] = !hud.screen_objects[HUD_GHOST_MINIGAMES]
+	result["dnr_present"] = !!hud.screen_objects[HUD_GHOST_DNR]
+	result["reenter_present"] = !!hud.screen_objects[HUD_GHOST_REENTER_CORPSE]
+	result["physical_cafe_turfs"] = length(get_area_turfs(/area/centcom/holding/cafe, subtypes = TRUE))
+	var/papers = 0
+	for(var/obj/item/paper/babylon/paper in world)
+		papers++
+	result["lore_papers"] = papers
+	result["return_before_destruct"] = builder.actions.Find(return_action) && builder.actions.Find(return_action) < builder.actions.Find(destruct_action)
+	qdel(hud)
+	qdel(ghost)
+	return result
+
 /datum/babylon_debug/proc/resolve_target(reference)
 	switch(reference)
 		if("builder")

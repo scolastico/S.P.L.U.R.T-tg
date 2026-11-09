@@ -2,6 +2,7 @@
 #define BABYLON_BUILDER
 #define FORCE_MAP "babylon13"
 #define MINIMAL_CENTCOM
+#define ABSOLUTE_MINIMUM
 #define AUTOSTART_GAME
 #define SKIP_SPACE_LEVELS
 #define SKIP_LAVALAND
@@ -12,6 +13,8 @@
 #include "modular_babylon/code/drone_recovery.dm"
 #include "modular_babylon/code/control.dm"
 #include "modular_babylon/code/admission.dm"
+#include "modular_babylon/code/builder_experience.dm"
+#include "modular_babylon/code/lore.dm"
 #ifdef BABYLON_TESTING
 #include "modular_babylon/code/testing.dm"
 #endif

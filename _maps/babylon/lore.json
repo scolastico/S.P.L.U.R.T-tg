@@ -1,0 +1,8 @@
+[
+  {"area": "/area/ruin/space/bb13/engineering/sec_eng", "paper": "/obj/item/paper/babylon/watchdog"},
+  {"area": "/area/ruin/space/bb13/research", "paper": "/obj/item/paper/babylon/research"},
+  {"area": "/area/ruin/space/bb13/medical", "paper": "/obj/item/paper/babylon/triage"},
+  {"area": "/area/ruin/space/bb13/bridge", "paper": "/obj/item/paper/babylon/recall"},
+  {"area": "/area/ruin/space/bb13/engineering/atmos", "paper": "/obj/item/paper/babylon/pressure"},
+  {"area": "/area/ruin/space/bb13/service/chapel", "paper": "/obj/item/paper/babylon/last_light"}
+]

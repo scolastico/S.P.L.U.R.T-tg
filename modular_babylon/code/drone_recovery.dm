@@ -8,8 +8,18 @@
 
 /datum/babylon_save/proc/install_drone_actions()
 	QDEL_NULL(destruct_action)
+	QDEL_NULL(return_action)
+	install_return_action(builder)
 	destruct_action = new(src)
 	destruct_action.Grant(builder)
+
+/datum/babylon_save/proc/install_return_action(mob/player)
+	if(!world.params["babylon-lobby"] || !player)
+		return
+	if(!return_action)
+		return_action = new(src)
+	if(return_action.owner != player)
+		return_action.Grant(player)
 
 /datum/babylon_save/proc/begin_respawn(mob/living/basic/drone/babylon/dead_drone)
 	if(respawn_pending)
@@ -38,6 +48,7 @@
 				qdel(previous)
 	if(!respawn_action)
 		respawn_action = new(src)
+	install_return_action(student.mob)
 	if(respawn_action.owner != student.mob)
 		respawn_action.Grant(student.mob)
 	var/seconds_left = ceil(max(0, respawn_ready_at - world.time) / (1 SECONDS))
@@ -56,7 +67,7 @@
 	if(!spawn_point)
 		to_chat(requester, span_warning("No engineering floor is available for respawn."))
 		return FALSE
-	var/mob/living/basic/drone/babylon/replacement = new(spawn_point)
+	var/mob/living/basic/drone/babylon/replacement/replacement = new(spawn_point)
 	for(var/field in drone_profile)
 		replacement.vars[field] = drone_profile[field]
 	replacement.icon_state = replacement.icon_living

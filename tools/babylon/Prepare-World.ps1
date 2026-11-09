@@ -1,4 +1,4 @@
-param([string]$Root=(Join-Path $PSScriptRoot '..\..'))
+param([string]$Root=(Join-Path $PSScriptRoot '..\..'), [string]$Python)
 $ErrorActionPreference='Stop'
 $rootPath=(Resolve-Path -LiteralPath $Root).Path
 $saveRoot=Join-Path $rootPath 'data\babylon'
@@ -15,7 +15,12 @@ if(Test-Path -LiteralPath $manifestFile){
     Copy-Item -LiteralPath (Join-Path $checkpoint 'state.json') -Destination $resume -Force
     Write-Host "Prepared checkpoint $($manifest.generation)."
 }else{
-    Copy-Item -LiteralPath (Join-Path $rootPath '_maps\RandomRuins\SpaceRuins\skyrat\drones_derelict.dmm') -Destination $active -Force
+    if(!$Python){
+        if(Get-Command uv -ErrorAction SilentlyContinue){$Python=(& uv python find)}
+        else{$Python=(Get-Command python -ErrorAction Stop).Source}
+    }
+    & $Python (Join-Path $rootPath 'services\supervisor\map_overlay.py') --root $rootPath --output $active
+    if($LASTEXITCODE -ne 0){throw 'Babylon map preparation failed.'}
     if(Test-Path -LiteralPath $resume){Remove-Item -LiteralPath $resume}
-    Write-Host 'Prepared the unmodified upstream Babylon wreck.'
+    Write-Host 'Prepared the upstream Babylon wreck with its lore additions.'
 }

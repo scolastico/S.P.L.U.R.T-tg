@@ -6,7 +6,7 @@ $supervisorFile=Join-Path $root 'babylon-supervisor-config.json'
 $lobbyFile=Join-Path $root 'babylon-lobby-config.json'
 $config=Get-Content -LiteralPath $supervisorFile -Raw|ConvertFrom-Json
 $lobby=Get-Content -LiteralPath $lobbyFile -Raw|ConvertFrom-Json
-foreach($name in @('babylon.dmb','babylon.rsc','babylon-lobby.dmb')){
+foreach($name in @('babylon.dmb','babylon.rsc','babylon-lobby.dmb','babylon-lobby.rsc')){
     if(!(Test-Path -LiteralPath (Join-Path $root $name))){throw "Missing $name; compile the production and lobby builds first."}
 }
 foreach($port in @($config.listen_port,$lobby.port)){

@@ -4,6 +4,11 @@ Babylon is opt-in: compile `babylon.dme`. The upstream `tgstation.dme` is
 unchanged. All seven non-modular edits are guarded by `BABYLON_BUILDER` and
 marked `BABYLON13`. Ordinary SPLURT builds compile those blocks out.
 
+The wrapper also defines upstream's `ABSOLUTE_MINIMUM` flag to skip the
+separate Interlink/cafe map loader. Builder behavior, restricted observer
+interfaces and lore papers live under `modular_babylon`; lore placements are
+applied to the fresh upstream map at preparation time, without a copied map.
+
 | Upstream file | Purpose |
 | --- | --- |
 | `code/controllers/master.dm` | Wait for restoration and final subsystem initialization before physics runs; support the isolated-test hold parameter. |
