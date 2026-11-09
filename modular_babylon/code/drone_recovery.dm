@@ -46,9 +46,9 @@
 	respawn_action.build_all_button_icons()
 
 /datum/babylon_save/proc/respawn_builder(mob/requester)
-	if(requester && requester.ckey != GLOB.babylon_save.owner_ckey)
+	if(requester && requester.ckey != owner_ckey)
 		return FALSE
-	if(!respawn_pending || world.time < respawn_ready_at || busy)
+	if(!respawn_pending || world.time < respawn_ready_at || GLOB.babylon_save.busy || GLOB.babylon_save.draining)
 		return FALSE
 	var/turf/spawn_point = respawn_turf
 	if(!valid_respawn_tile(spawn_point))
@@ -67,7 +67,7 @@
 	respawn_ready_at = 0
 	QDEL_NULL(respawn_action)
 	install_drone_actions()
-	var/client/student = GLOB.directory[GLOB.babylon_save.owner_ckey]
+	var/client/student = GLOB.directory[owner_ckey]
 	if(student)
 		var/mob/previous = student.mob
 		builder.PossessByPlayer(student.ckey)
@@ -91,7 +91,7 @@
 	return null
 
 /datum/babylon_save/proc/vaporize_builder()
-	if(QDELETED(builder) || builder.stat == DEAD || respawn_pending || busy)
+	if(QDELETED(builder) || builder.stat == DEAD || respawn_pending || GLOB.babylon_save.busy || GLOB.babylon_save.draining)
 		return FALSE
 	var/mob/living/basic/drone/babylon/doomed = builder
 	var/turf/drop_point = get_turf(doomed)
@@ -112,12 +112,14 @@
 
 /mob/living/basic/drone/babylon/death(gibbed)
 	. = ..()
-	if(GLOB.babylon_save?.builder == src)
-		GLOB.babylon_save.begin_respawn(src)
+	var/datum/babylon_save/player = GLOB.babylon_save?.player_for_drone(src)
+	if(player)
+		player.begin_respawn(src)
 
 /mob/living/basic/drone/babylon/Destroy()
-	if(GLOB.babylon_save?.ready && GLOB.babylon_save.builder == src)
-		GLOB.babylon_save.begin_respawn(src)
+	var/datum/babylon_save/player = GLOB.babylon_save?.player_for_drone(src)
+	if(GLOB.babylon_save?.ready && player)
+		player.begin_respawn(src)
 	return ..()
 
 /datum/action/babylon_self_destruct
@@ -128,13 +130,14 @@
 	show_to_observers = FALSE
 
 /datum/action/babylon_self_destruct/Trigger(mob/clicker, trigger_flags)
-	if(!..() || owner?.ckey != GLOB.babylon_save.owner_ckey || owner != GLOB.babylon_save.builder)
+	var/datum/babylon_save/session = target
+	if(!..() || owner?.ckey != session.owner_ckey || owner != session.builder)
 		return FALSE
 	if(tgui_alert(owner, "Vaporize your drone? All carried items will drop at your current position. You can respawn after 60 seconds.", "Confirm self-destruct", list("Cancel", "Self-destruct")) != "Self-destruct")
 		return FALSE
-	if(owner != GLOB.babylon_save.builder || owner?.stat == DEAD)
+	if(owner != session.builder || owner?.stat == DEAD)
 		return FALSE
-	return GLOB.babylon_save.vaporize_builder()
+	return session.vaporize_builder()
 
 /datum/action/babylon_respawn
 	name = "Respawn drone"
@@ -144,11 +147,13 @@
 	show_to_observers = FALSE
 
 /datum/action/babylon_respawn/IsAvailable(feedback = FALSE)
-	return ..() && GLOB.babylon_save.respawn_pending && world.time >= GLOB.babylon_save.respawn_ready_at
+	var/datum/babylon_save/session = target
+	return ..() && session.respawn_pending && world.time >= session.respawn_ready_at
 
 /datum/action/babylon_respawn/apply_button_icon(atom/movable/screen/movable/action_button/button, force = FALSE)
 	. = ..()
-	var/seconds_left = ceil(max(0, GLOB.babylon_save.respawn_ready_at - world.time) / (1 SECONDS))
+	var/datum/babylon_save/session = target
+	var/seconds_left = ceil(max(0, session.respawn_ready_at - world.time) / (1 SECONDS))
 	button.maptext_x = 2
 	button.maptext_y = 2
 	button.maptext_width = 32
@@ -158,11 +163,12 @@
 /datum/action/babylon_respawn/Trigger(mob/clicker, trigger_flags)
 	if(!..())
 		return FALSE
-	return GLOB.babylon_save.respawn_builder(owner)
+	var/datum/babylon_save/session = target
+	return session.respawn_builder(owner)
 
 /mob/dead/observer/get_status_tab_items()
 	. = ..()
-	var/datum/babylon_save/session = GLOB.babylon_save
-	if(ckey == GLOB.babylon_save.owner_ckey && session?.ready && session.respawn_pending)
+	var/datum/babylon_save/session = GLOB.babylon_save.player_sessions[ckey]
+	if(session?.ready && session.respawn_pending)
 		var/seconds_left = ceil(max(0, session.respawn_ready_at - world.time) / (1 SECONDS))
 		. += seconds_left ? "Babylon respawn: [seconds_left] seconds" : "Babylon respawn: READY — click Respawn drone"

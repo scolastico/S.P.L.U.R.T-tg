@@ -1,6 +1,10 @@
 // Authenticated integration-test helpers; excluded from production builds.
 GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 
+// Exercises the same native HTTP export as the admission gate, without a client.
+/datum/babylon_save/proc/test_supervisor_export(encoded_query)
+	return babylon_supervisor_request(json_decode(encoded_query))
+
 /datum/babylon_debug/proc/resolve_target(reference)
 	switch(reference)
 		if("builder")

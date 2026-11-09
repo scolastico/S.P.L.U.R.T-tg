@@ -1,0 +1,3 @@
+// Independent menu server: no SPLURT includes, maps, simulation or dependencies.
+#include "modular_babylon/lobby/lobby.dmf"
+#include "modular_babylon/lobby/lobby.dm"

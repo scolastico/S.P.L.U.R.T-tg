@@ -268,6 +268,13 @@ GLOBAL_LIST_INIT(unrecommended_builds, list(
 	if(connection != "seeker" && connection != "web")//Invalid connection type.
 		return null
 
+#ifdef BABYLON_BUILDER // BABYLON13: admission precedes client registration/avatar creation.
+	if(!babylon_admit(tdata))
+		if(world.params["babylon-lobby"])
+			src << link(world.params["babylon-lobby"])
+		return null
+#endif
+
 	GLOB.clients += src
 	GLOB.directory[ckey] = src
 

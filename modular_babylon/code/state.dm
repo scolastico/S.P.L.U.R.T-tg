@@ -17,6 +17,9 @@ GLOBAL_DATUM_INIT(babylon_save, /datum/babylon_save, new)
 /datum/controller/subsystem/gamemode
 	ss_flags = SS_NO_FIRE
 
+/datum/controller/subsystem/weather
+	ss_flags = SS_NO_FIRE
+
 /atom
 	var/babylon_save_id = null
 
@@ -29,6 +32,9 @@ GLOBAL_DATUM_INIT(babylon_save, /datum/babylon_save, new)
 	var/next_id = 1
 	var/station_z
 	var/owner_ckey
+	// Owner uses this datum for legacy saves; other players have independent sessions.
+	var/list/player_sessions = list()
+	var/draining = FALSE
 	var/mob/living/basic/drone/babylon/builder
 	var/list/restored_atoms = list()
 	var/list/resume_data

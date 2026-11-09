@@ -1,7 +1,7 @@
 # Upstream integration hooks
 
 Babylon is opt-in: compile `babylon.dme`. The upstream `tgstation.dme` is
-unchanged. All six non-modular edits are guarded by `BABYLON_BUILDER` and
+unchanged. All seven non-modular edits are guarded by `BABYLON_BUILDER` and
 marked `BABYLON13`. Ordinary SPLURT builds compile those blocks out.
 
 | Upstream file | Purpose |
@@ -12,6 +12,7 @@ marked `BABYLON13`. Ordinary SPLURT builds compile those blocks out.
 | `code/game/machinery/computer/atmos_computers/_air_sensor.dm` | Skip fresh-map automatic vent claiming for restored sensors. |
 | `code/__HELPERS/priority_announce.dm` | Suppress round announcements and command reports in the builder world. |
 | `modular_zubbers/code/modules/storyteller/divergency_report.dm` | Suppress round-start station-trait reporting. |
+| `code/modules/client/client_procs.dm` | Validate single-use lobby admission before registering a child client or creating an avatar. Standalone builds restrict access to their configured owner. |
 
 Keep these patches small. Do not copy complete upstream files from the local
 prototype. When upstream changes a hook's surrounding procedure, review its

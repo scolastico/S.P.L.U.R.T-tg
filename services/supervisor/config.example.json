@@ -1,0 +1,22 @@
+{
+  "listen_host": "127.0.0.1",
+  "listen_port": 1360,
+  "public_host": "127.0.0.1",
+  "bind_address": "127.0.0.1",
+  "lobby_address": "byond://127.0.0.1:1361",
+  "lobby_secret": "REPLACE_WITH_RANDOM_SECRET",
+  "admins": [],
+  "data_directory": "./data/babylon-supervisor",
+  "template_directory": ".",
+  "config_directory": "./config",
+  "dreamdaemon": "C:/BYOND/bin/dd.exe",
+  "port_first": 1400,
+  "port_last": 1420,
+  "max_running_worlds": 4,
+  "max_players_per_world": 4,
+  "max_worlds_per_player": 3,
+  "max_running_worlds_per_player": 1,
+  "empty_grace_seconds": 120,
+  "startup_timeout_seconds": 300,
+  "ticket_lifetime_seconds": 60
+}

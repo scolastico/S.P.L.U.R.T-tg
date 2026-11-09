@@ -1,0 +1,15 @@
+window "lobby"
+	elem "lobby"
+		type = MAIN
+		size = 1000x720
+		is-default = true
+		statusbar = false
+		title = "Babylon 13"
+		saved-params = "pos;size;is-maximized"
+	elem "browser"
+		type = BROWSER
+		pos = 0,0
+		size = 1000x720
+		anchor1 = 0,0
+		anchor2 = 100,100
+		is-default = true

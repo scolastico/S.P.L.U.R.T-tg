@@ -67,7 +67,7 @@ try{
     $first=BB save
     Check $first.ok 'Initial checkpoint failed.'
     $before=Get-Content "$root\data\babylon\saves\$($first.generation)\state.json" -Raw|ConvertFrom-Json
-    Check ($before.version -eq 5) 'Wrong checkpoint format.'
+    Check ($before.version -eq 6) 'Wrong checkpoint format.'
     Stop-Test
     & "$PSScriptRoot\Prepare-World.ps1" -Root $root
     Launch

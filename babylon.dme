@@ -3,12 +3,15 @@
 #define FORCE_MAP "babylon13"
 #define MINIMAL_CENTCOM
 #define AUTOSTART_GAME
+#define SKIP_SPACE_LEVELS
+#define SKIP_LAVALAND
 #include "tgstation.dme"
 #include "modular_babylon/code/state.dm"
 #include "modular_babylon/code/persistence.dm"
 #include "modular_babylon/code/session.dm"
 #include "modular_babylon/code/drone_recovery.dm"
 #include "modular_babylon/code/control.dm"
+#include "modular_babylon/code/admission.dm"
 #ifdef BABYLON_TESTING
 #include "modular_babylon/code/testing.dm"
 #endif

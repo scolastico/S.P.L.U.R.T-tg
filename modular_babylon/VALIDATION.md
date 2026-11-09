@@ -17,7 +17,8 @@ Validated locally on 2026-11-09, based on upstream master
 - The owner was configured through world parameters using a test identity;
   no personal owner account is compiled into the module.
 - `tgstation.dme` is unchanged. Core integration changes are limited to the six
-  files listed in [UPSTREAM_HOOKS.md](UPSTREAM_HOOKS.md).
+  files listed in [UPSTREAM_HOOKS.md](UPSTREAM_HOOKS.md) at that initial milestone;
+  cluster admission adds a seventh guarded upstream hook.
 - All 30 previously active workflow YAML files were renamed with `.disabled`;
   repository Actions were disabled separately.
 
@@ -25,6 +26,34 @@ The earlier local prototype had additional reactor-running, pipe-expansion,
 lathe-material, autosave-countdown and drone-recovery tests. Those results do
 not substitute for repeating coverage against this fork after future changes.
 This initial smoke test is not a full persistence or multiplayer certification.
+
+## Lobby/supervisor milestone (2026-11-09)
+
+- All four builds compile with zero errors/warnings on 516.1686: ordinary
+  upstream `tgstation.dme`, production `babylon.dme`, privileged local
+  `babylon-test.dme`, and independent `babylon-lobby.dme`.
+- Twelve supervisor tests pass: private/password/member/admin access, offline
+  editing and validation, per-owner/global quotas, concurrent starts, pending
+  and redeemed capacity reservations, ticket binding/expiry/replay, membership
+  removal, supervisor restart and save failure retention.
+- Real DreamDaemon native smoke passes: fresh startup, DM HTTP ticket
+  redemption, replay rejection, administrator admission to a private world,
+  final save/exit, restart and two separate player roster entries. A second
+  drone enclosed inside a locker retains its held backpack and pending respawn.
+- The earlier persistence regression passes after the roster refactor:
+  3,334 objects, 2,474 room tiles, nested/held inventory, vent settings,
+  scrubber widenet, airlock electronics/groups, and exact room/device/pipe gas.
+- The menu was opened in a real DreamSeeker client and visually checked. It
+  uses a dedicated browser-only skin with no map or SS13 gameplay controls.
+- A production child admitted an actual authenticated DreamSeeker client
+  using a supervisor-issued ticket; the player appeared in its live roster.
+  Owner stop then committed a checkpoint and disconnected the client.
+- The separate private prototype on port 1339 was not restarted or changed.
+
+Generated logs/results are ignored under `data/babylon-supervisor/` in the
+developer checkout. See [CLUSTER.md](CLUSTER.md) for repeatable commands and
+remaining operational limitations. These checks are not a public-hosting or
+multi-client load certification.
 
 ## Repeating the smoke test
 

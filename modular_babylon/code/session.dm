@@ -54,27 +54,13 @@
 	ready = TRUE
 	next_autosave_at = world.time + 15 MINUTES
 	while(TRUE)
-		var/client/student = GLOB.directory[GLOB.babylon_save.owner_ckey]
-		if(!respawn_pending && QDELETED(builder))
-			begin_respawn()
-		if(respawn_pending)
-			update_respawn_player(student)
-		if(!respawn_pending && student && student.mob != builder)
-			var/mob/previous = student.mob
-			if(isnewplayer(previous))
-				var/mob/dead/new_player/lobby = previous
-				lobby.spawning = TRUE
-				lobby.hide_title_screen()
-			builder.PossessByPlayer(student.ckey)
-			if(previous && isnewplayer(previous))
-				qdel(previous)
-			to_chat(builder, span_notice("Babylon builder ready. Use the Save Babylon and Save and Stop Babylon verbs, or the desktop launchers."))
-		// Lobby asset delivery may finish after possession. Keep its browser
-		// hidden on reconnect too, even when the client already owns the drone.
-		if(student && (student.mob == builder || respawn_pending))
-			winset(student, "title_browser", "is-disabled=true;is-visible=false")
-			winset(student, "status_bar", "is-visible=true")
-		if(student && world.time >= next_autosave_at - 30 SECONDS && !autosave_countdown_active)
+		if(!draining)
+			for(var/client/student in GLOB.clients)
+				ensure_player(student.ckey)
+			for(var/player_key in player_sessions)
+				var/datum/babylon_save/player = player_sessions[player_key]
+				tick_player(player, GLOB.directory[player_key])
+		if(length(GLOB.clients) && world.time >= next_autosave_at - 30 SECONDS && !autosave_countdown_active && !draining)
 			next_autosave_at = world.time + 15 MINUTES + 30 SECONDS
 			INVOKE_ASYNC(src, PROC_REF(countdown_autosave))
 		sleep(1 SECONDS)
@@ -90,7 +76,7 @@
 	for(var/seconds_left in list(30, 10, 5, 1))
 		if(remaining > seconds_left)
 			sleep((remaining - seconds_left) SECONDS)
-		if(!allow_unoccupied && !GLOB.directory[GLOB.babylon_save.owner_ckey])
+		if(!allow_unoccupied && !length(GLOB.clients))
 			autosave_countdown_active = FALSE
 			return
 		var/message = seconds_left == 1 ? "Babylon autosave now." : "Babylon autosave in [seconds_left] seconds."
@@ -99,7 +85,7 @@
 		remaining = seconds_left
 	// Give the client a full second to receive/render "now" before freezing.
 	sleep(1 SECONDS)
-	if((allow_unoccupied || GLOB.directory[GLOB.babylon_save.owner_ckey]) && !busy)
+	if((allow_unoccupied || length(GLOB.clients)) && !busy)
 		save_world()
 	autosave_countdown_active = FALSE
 
@@ -112,8 +98,9 @@ SUBSYSTEM_DEF(babylon_builder)
 	var/datum/babylon_save/session = GLOB.babylon_save
 	session.owner_ckey = ckey(world.params["babylon-owner"])
 	if(!session.owner_ckey)
-		session.boot_error = "Set babylon-owner=<BYOND ckey> in world parameters. This prototype supports one configured player."
+		session.boot_error = "Set babylon-owner=<BYOND ckey> in world parameters. A world owner is required."
 		return SS_INIT_FAILURE
+	session.player_sessions[session.owner_ckey] = session
 	session.station_z = SSmapping.levels_by_trait(ZTRAIT_STATION)[1]
 	try
 		session.restore_world()

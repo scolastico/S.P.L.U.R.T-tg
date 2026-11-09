@@ -1,0 +1,161 @@
+"""Explicit integration test with real DreamDaemon children; no player world is touched."""
+import argparse
+import json
+from pathlib import Path
+import secrets
+import shutil
+import socket
+import threading
+import time
+import urllib.request
+
+from protocol import topic
+from supervisor import Driver, Supervisor, serve
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dreamdaemon", required=True)
+    parser.add_argument("--config-directory", required=True)
+    parser.add_argument("--data-directory", required=True)
+    parser.add_argument("--api-port", type=int, default=1368)
+    parser.add_argument("--child-port", type=int, default=1458)
+    args = parser.parse_args()
+    root = Path(__file__).resolve().parents[2]
+    data = Path(args.data_directory).resolve()
+    if data.exists():
+        raise RuntimeError("Use a new empty test data directory")
+    for port in (args.api_port, args.child_port):
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", port))
+    config = dict(data_directory=str(data), template_directory=str(root),
+                  config_directory=str(Path(args.config_directory).resolve()),
+                  dreamdaemon=str(Path(args.dreamdaemon).resolve()),
+                  max_worlds_per_player=3, max_running_worlds_per_player=1,
+                  max_running_worlds=1, max_players_per_world=2,
+                  port_first=args.child_port, port_last=args.child_port,
+                  ticket_lifetime_seconds=60, empty_grace_seconds=600,
+                  startup_timeout_seconds=300, public_host="127.0.0.1", admins=["testadmin"],
+                  listen_host="127.0.0.1", listen_port=args.api_port,
+                  lobby_secret=secrets.token_urlsafe(32), lobby_address="byond://127.0.0.1:1369")
+
+    class TestDriver(Driver):
+        def prepare(self, world, run):
+            prepared = super().prepare(world, run)
+            for ext in ("dmb", "rsc"):
+                shutil.copy2(root / f"babylon-test.{ext}", prepared / f"babylon.{ext}")
+            return prepared
+
+    driver = TestDriver(config)
+    service = Supervisor(config, driver)
+    threading.Thread(target=serve, args=(config, service), daemon=True).start()
+
+    def api(action, payload=None, actor="smokeowner"):
+        body = json.dumps(dict(secret=config["lobby_secret"], actor=actor, action=action, payload=payload or {})).encode()
+        request = urllib.request.Request(f"http://127.0.0.1:{args.api_port}/api", data=body,
+                                         headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=180) as response:
+            result = json.load(response)
+        assert result.get("ok"), result
+        return result
+
+    def current():
+        with service.lock:
+            return service.row("SELECT * FROM runs")
+
+    def wait_ready(world):
+        api("join", {"world": world})
+        deadline = time.time() + 300
+        while time.time() < deadline:
+            run = current()
+            if run and run["state"] == "running":
+                return run
+            if run and run["state"] == "error":
+                raise RuntimeError(run["error"])
+            time.sleep(2)
+        raise TimeoutError("Child did not become ready")
+
+    def debug(run, action, payload):
+        result = topic(run["port"], run["secret"], action, payload, timeout=180)
+        assert not result.get("error"), result
+        return result
+
+    def call(run, target, proc, values=None):
+        return debug(run, "call", dict(target=target, proc=proc, args=values or []))["result"]
+
+    def stop(world):
+        api("stop", {"world": world})
+        deadline = time.time() + 60
+        while time.time() < deadline and current():
+            time.sleep(1)
+        assert not current(), "Child did not exit after checkpoint"
+
+    try:
+        time.sleep(.5)
+        world = api("create", dict(name="Native smoke", visibility="private"))["id"]
+        run = wait_ready(world)
+        assert topic(run["port"], run["secret"], "status")["players"] == []
+        player = call(run, "session", "ensure_player", ["smokefriend"])
+        friend_ref = player["ref"]
+        fields = debug(run, "inspect", dict(target=friend_ref, vars=["builder"]))["vars"]
+        friend_drone = fields["builder"]["ref"]
+        debug(run, "set_var", dict(target=friend_drone, var="name", value="Second persistent drone"))
+        debug(run, "set_var", dict(target=friend_drone, var="picked", value=1))
+        bag = debug(run, "spawn", dict(type="/obj/item/storage/backpack", target=friend_drone))["object"]["ref"]
+        call(run, friend_drone, "put_in_hand", [{"ref": bag}, 2, 1])
+        closet = debug(run, "spawn", dict(type="/obj/structure/closet", target=friend_drone))["object"]["ref"]
+        call(run, friend_drone, "forceMove", [{"ref": closet}])
+        call(run, friend_drone, "death")
+        # Exercise real DM world.Export -> HTTP redemption, with an admin bypass.
+        address = api("join", {"world": world}, actor="testadmin")["address"]
+        ticket = address.split("babylon_ticket=")[1]
+        query = dict(action="redeem", actor="testadmin", ticket=ticket)
+        # Test-only helper runs the same HTTP request procedure as client.New.
+        exported = call(run, "session", "test_supervisor_export", [json.dumps(query)])
+        assert any(e["entry"] == "ok" and e["value"] for e in exported["entries"]), exported
+        exported = call(run, "session", "test_supervisor_export", [json.dumps(query)])
+        assert not any(e["entry"] == "ok" and e["value"] for e in exported["entries"]), "Ticket replay accepted"
+        stop(world)
+        saved = data / "worlds" / world / "data/babylon/saves"
+        generation = json.loads((saved / "latest.json").read_text())["generation"]
+        before = json.loads((saved / generation / "state.json").read_text())
+        assert set(before["players"]) == {"smokeowner", "smokefriend"}
+        friend_id = before["players"]["smokefriend"]["builder"]
+        assert before["players"]["smokefriend"]["respawn_pending"]
+        run = wait_ready(world)
+        roster = debug(run, "inspect", dict(target="session", vars=["player_sessions"]))["vars"]["player_sessions"]
+        assert roster["length"] == 2, roster
+        restored_friend = next(e["value"]["ref"] for e in roster["entries"] if e["entry"] == "smokefriend")
+        fields = debug(run, "inspect", dict(target=restored_friend, vars=["builder", "respawn_pending", "respawn_ready_at"]))["vars"]
+        assert fields["builder"]["name"] == "Second persistent drone", fields
+        assert fields["respawn_pending"], fields
+        stop(world)
+        generation2 = json.loads((saved / "latest.json").read_text())["generation"]
+        after = json.loads((saved / generation2 / "state.json").read_text())
+        assert after["players"]["smokefriend"]["builder"] == friend_id
+        objects = {r["id"]: r for r in after["records"]}
+        inventory = [r for r in before["records"] if r.get("parent") == friend_id]
+        for item in inventory:
+            assert objects[item["id"]].get("parent") == friend_id
+        report = dict(passed=True, real_child_start_stop=True, http_ticket_redemption=True,
+                      replay_rejected=True, admin_private_bypass=True, multiplayer_roster=True,
+                      second_inventory=True, second_respawn=True, enclosed_drone=True,
+                      generations=[generation, generation2])
+        (data / "result.json").write_text(json.dumps(report, indent=2))
+        print(json.dumps(report, indent=2))
+    finally:
+        run = current()
+        if run:
+            try:
+                api("stop", {"world": run["world"]})
+                deadline = time.time() + 30
+                while time.time() < deadline and current():
+                    time.sleep(1)
+            except Exception:
+                pass
+            if current():
+                print("Test child retained for diagnosis; see test data directory.")
+
+
+if __name__ == "__main__":
+    main()

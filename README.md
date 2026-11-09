@@ -24,17 +24,22 @@ so upstream changes can continue to be merged.
   drops.
 - Authenticated checkpoint status/save/stop controls. Arbitrary live mutation
   tools are compiled only into the explicitly unsafe integration-test build.
+- A standalone lightweight BYOND lobby and Python/SQLite supervisor: world
+  creation, private/password/public access, memberships, quotas, offline edits,
+  owner stop controls, administrator admission, and single-use join tickets.
+- Per-player drone persistence in shared worlds, with separate inventories,
+  appearances and respawn state. Empty worlds save and stop automatically.
 
 These features were ported from a local prototype. The fork still needs
 broader validation, save-schema evolution and failure recovery work.
 
 ## Scope and limitations
 
-The current prototype supports **one configured BYOND owner and one world per
-process**. It is not a multiplayer implementation. A lobby, world creation,
-membership/permissions, private/password/public visibility, process management,
-and synthetic-body progression have not been implemented; their design is a
-separate next step.
+The cluster runs **one world per process**, with a separate minimal menu server.
+See [cluster setup and limitations](modular_babylon/CLUSTER.md). Multiplayer
+and admission are experimental and still need real multi-client playtesting.
+Delegated manager roles, moderation/bans, synthetic-body progression and public
+hosting hardening have not been implemented.
 
 The checkpoint is not a complete memory image. Arbitrary mob types, organs/DNA,
 all temporary effects, timers, event/antagonist state, and every machine-specific
@@ -49,6 +54,8 @@ object-ID repairs are applied to new worlds.
 ## Developer entry points
 
 - `babylon.dme`: opt-in Babylon build; includes upstream `tgstation.dme`.
+- `babylon-lobby.dme`: independent menu-only BYOND build.
+- `services/supervisor/`: world metadata, admission and process lifecycle service.
 - `babylon-test.dme`: local test build with privileged inspection/mutation tools.
   **Never expose it to untrusted clients.**
 - `modular_babylon/code/`: persistence, session, recovery and control modules.

@@ -236,9 +236,11 @@
 	checkpoint_processing = Master.processing
 	checkpoint_started = REALTIMEOFDAY
 	Master.processing = FALSE
-	if(!QDELETED(builder))
-		ADD_TRAIT(builder, TRAIT_IMMOBILIZED, "babylon_checkpoint")
-		ADD_TRAIT(builder, TRAIT_UI_BLOCKED, "babylon_checkpoint")
+	for(var/player_key in player_sessions)
+		var/datum/babylon_save/player = player_sessions[player_key]
+		if(!QDELETED(player.builder))
+			ADD_TRAIT(player.builder, TRAIT_IMMOBILIZED, "babylon_checkpoint")
+			ADD_TRAIT(player.builder, TRAIT_UI_BLOCKED, "babylon_checkpoint")
 	sleep(1 TICKS)
 	var/list/result
 	try
@@ -246,15 +248,21 @@
 	catch(var/exception/error)
 		result = list("error" = "Checkpoint failed: [error]")
 		log_world("BABYLON SAVE ERROR: [error]")
+	if(!result["ok"] && draining)
+		draining = FALSE
 	release_checkpoint()
 	busy = FALSE
 	return result
 
 // Only snapshot capture is frozen. Serialization and disk writes use detached data.
 /datum/babylon_save/proc/release_checkpoint()
-	if(!QDELETED(builder))
-		REMOVE_TRAIT(builder, TRAIT_IMMOBILIZED, "babylon_checkpoint")
-		REMOVE_TRAIT(builder, TRAIT_UI_BLOCKED, "babylon_checkpoint")
+	if(draining)
+		return
+	for(var/player_key in player_sessions)
+		var/datum/babylon_save/player = player_sessions[player_key]
+		if(!QDELETED(player.builder))
+			REMOVE_TRAIT(player.builder, TRAIT_IMMOBILIZED, "babylon_checkpoint")
+			REMOVE_TRAIT(player.builder, TRAIT_UI_BLOCKED, "babylon_checkpoint")
 	Master.processing = checkpoint_processing
 
 /datum/babylon_save/proc/save_world_impl()
@@ -265,6 +273,17 @@
 	var/list/grid = list()
 	var/key_index = 1
 	var/list/empty_space_keys = list()
+	// A drone can be inside a locker or vent. Save it at the enclosing tile
+	// rather than silently dropping its body and inventory from the checkpoint.
+	var/list/drones_by_turf = list()
+	for(var/mob/living/basic/drone/babylon/drone in GLOB.mob_list)
+		var/turf/tile = get_turf(drone)
+		if(QDELETED(drone) || tile?.z != station_z)
+			continue
+		if(!drones_by_turf[tile])
+			drones_by_turf[tile] = list()
+		var/list/drones = drones_by_turf[tile]
+		drones += drone
 	// All map changes and room air are exported; nested items and live settings go in state.json.
 	for(var/x in 1 to world.maxx)
 		grid += "\n([x],1,1) = {\"\n"
@@ -274,7 +293,7 @@
 			// instead of inspecting and encoding its vars 60,000 times.
 			var/area/room = get_area(tile)
 			var/space_signature
-			if(isspaceturf(tile) && !(locate(/obj) in tile) && builder?.loc != tile)
+			if(isspaceturf(tile) && !(locate(/obj) in tile) && !drones_by_turf[tile])
 				space_signature = "[tile.type]|[room.type]|[tile.dir]|[tile.name]|[tile.pixel_x]|[tile.pixel_y]|[tile.pixel_z]|[tile.layer]|[tile.plane]|[tile.alpha]|[tile.density]|[tile.opacity]|[tile.icon_state]"
 				if(empty_space_keys[space_signature])
 					grid += "[empty_space_keys[space_signature]]\n"
@@ -301,9 +320,10 @@
 					continue
 				objects += "[object.type][metadata(object)]"
 				capture(object, records, null)
-			if(builder?.loc == tile)
-				objects += "[builder.type][metadata(builder)]"
-				capture(builder, records, null)
+			for(var/mob/living/basic/drone/babylon/drone as anything in drones_by_turf[tile])
+				if(!QDELETED(drone))
+					objects += "[drone.type][metadata(drone)]"
+					capture(drone, records, null)
 			objects += "[tile.type][metadata(tile, TRUE)]"
 			objects += "[room.type]"
 			var/header = "(\n[objects.Join(",\n")])\n"
@@ -322,6 +342,11 @@
 	var/map_text = "//[DMM2TGM_MESSAGE]\n[headers.Join()][grid.Join()]"
 	var/list/state = list("version" = 5, "generation" = generation, "next_id" = next_id, "save_count" = save_count, "builder" = !QDELETED(builder) ? builder?.babylon_save_id : null, "records" = records, "turfs" = turfs)
 	state["player"] = list("respawn_pending" = respawn_pending, "respawn_remaining" = max(0, respawn_ready_at - world.time), "spawn_x" = respawn_turf?.x, "spawn_y" = respawn_turf?.y, "profile" = respawn_pending ? drone_profile.Copy() : capture_drone_profile())
+	state["version"] = 6
+	var/list/players = list()
+	for(var/player_key in player_sessions)
+		players[player_key] = player_snapshot(player_sessions[player_key])
+	state["players"] = players
 	var/datum/techweb/science/research = locate(/datum/techweb/science) in SSresearch.techwebs
 	if(research)
 		state["research"] = list("nodes" = research.researched_nodes.Copy(), "designs" = research.researched_designs.Copy(), "points" = research.research_points.Copy())
@@ -522,28 +547,19 @@
 				control.track = record["fields"]["track"]
 		if(istype(thing, /obj/item/modular_computer) && record["active_program"])
 			programs_to_resume[thing] = record
-	builder = restored_atoms[state["builder"]]
-	var/list/player_state = state["player"]
-	if(player_state)
-		respawn_pending = player_state["respawn_pending"]
-		respawn_ready_at = respawn_pending ? world.time + player_state["respawn_remaining"] : 0
-		drone_profile = player_state["profile"] || list()
-		if(player_state["spawn_x"] && player_state["spawn_y"])
-			respawn_turf = locate(player_state["spawn_x"], player_state["spawn_y"], station_z)
-	if(builder)
-		// Put restored hand items through the normal equip path (signals/HUD).
-		var/list/hands = builder.held_items.Copy()
-		builder.held_items = new /list(length(hands))
-		for(var/index in 1 to length(hands))
-			var/obj/item/item = hands[index]
-			if(item)
-				builder.put_in_hand(item, index, forced = TRUE)
-		// Version 1/2 omitted this flag and colour; retain the saved design.
-		if(!("picked" in resume_records[builder.babylon_save_id]["fields"]))
-			builder.picked = TRUE
-		builder.update_held_items()
-		builder.update_inv_internal_storage()
-		builder.update_worn_head()
+	var/list/players = state["players"]
+	if(!players)
+		var/list/legacy_player = state["player"] || list()
+		legacy_player["builder"] = state["builder"]
+		players = list()
+		players[owner_ckey] = legacy_player
+	for(var/player_key in players)
+		var/datum/babylon_save/player = player_sessions[player_key]
+		if(!player)
+			player = new
+			player.owner_ckey = player_key
+			player_sessions[player_key] = player
+		restore_player(player, players[player_key])
 	var/datum/techweb/science/research = locate(/datum/techweb/science) in SSresearch.techwebs
 	var/list/research_data = state["research"]
 	if(research && research_data)

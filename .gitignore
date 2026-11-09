@@ -271,3 +271,8 @@ rust_g64.dll
 /babylon*.dyn.rsc*
 /babylon*.rsc.lk
 /babylon*.log
+/babylon-lobby-config.json
+/babylon-supervisor-config.json
+/data/babylon-supervisor/
+__pycache__/
+*.pyc
