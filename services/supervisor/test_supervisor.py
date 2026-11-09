@@ -80,7 +80,7 @@ class Policies(unittest.TestCase):
         self.assertNotIn("secret", json.dumps(self.s.dispatch("visitor", "list", {})))
         with self.assertRaises(Denied):
             self.s.dispatch("other", "join", {"world": w, "password": "wrong"})
-        run = self.start(w, "other", password="secret")
+        run = self.start(w)
         token = self.ticket(w, "other", password="secret")
         self.assertTrue(self.s.redeem(run["id"], run["secret"], token, "other")["ok"])
 
@@ -117,6 +117,8 @@ class Policies(unittest.TestCase):
 
     def test_concurrent_join_single_process(self):
         w = self.create()
+        for i in range(8):
+            self.s.dispatch("owner", "member", {"world": w, "member": "p" + str(i)})
         errors = []
         def join(actor):
             try:
@@ -129,6 +131,20 @@ class Policies(unittest.TestCase):
         for t in threads:
             t.join()
         self.assertEqual(errors, [])
+        self.assertEqual(self.driver.starts, 1)
+
+    def test_guests_cannot_start_public_or_password_worlds(self):
+        for visibility in ("public", "password"):
+            with self.subTest(visibility=visibility):
+                w = self.s.dispatch("owner", "create", {"name": "Offline", "visibility": visibility, "password": "secret"})["id"]
+                with self.assertRaisesRegex(Denied, "offline"):
+                    self.s.dispatch("visitor", "join", {"world": w, "password": "secret"})
+        self.assertEqual(self.driver.starts, 0)
+        self.assertEqual(self.s.row("SELECT count(*) n FROM runs")["n"], 0)
+
+    def test_admin_can_start_private_world(self):
+        w = self.s.dispatch("owner", "create", {"name": "Private", "visibility": "private"})["id"]
+        self.start(w, "admin")
         self.assertEqual(self.driver.starts, 1)
 
     def test_offline_edit_and_ownership(self):

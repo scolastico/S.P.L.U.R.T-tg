@@ -86,7 +86,10 @@ body{background:#171d28;color:#e4eaf5;font:16px Segoe UI,Arial;padding:24px}a{co
 				continue
 			var/id = card["id"]
 			content += "<section><b>[html_encode(card["name"])]</b><p>[html_encode(card["description"])]</p><small>Owner: [html_encode(card["owner"])] | [html_encode(card["visibility"])] | [html_encode(card["state"])] | [card["players"]]/[card["max_players"]] players | Your role: [html_encode(card["role"])]<br>Last save: [html_encode(card["last_save"] || "None yet")]</small><p>"
-			content += "<a href='?src=\ref[src];action=join;world=[id]'>Join</a>"
+			if(card["role"] != "guest" || card["state"] != "stopped")
+				content += "<a href='?src=\ref[src];action=join;world=[id]'>Join</a>"
+			else
+				content += "<small>Offline — an owner, member or admin must start this world.</small>"
 			if(card["role"] == "owner" || card["role"] == "admin")
 				if(card["state"] == "stopped")
 					content += "<a href='?src=\ref[src];action=edit;world=[id]'>Edit settings</a><a href='?src=\ref[src];action=member;world=[id]'>Members</a><a href='?src=\ref[src];action=rollback;world=[id]'>Saved checkpoints / rollback</a>"

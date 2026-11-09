@@ -312,6 +312,8 @@ class Supervisor:
                 raise Denied("This world is private or the password is incorrect")
             run = self.row("SELECT * FROM runs WHERE world=?", (world["id"],))
             if not run:
+                if role == "guest":
+                    raise Denied("This world is offline. Only its owner, members or a server administrator can start it")
                 self.start(world)
                 return {"ok": True, "pending": True}
             if run["state"] == "starting":

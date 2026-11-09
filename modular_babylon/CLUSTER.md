@@ -62,6 +62,8 @@ lobby before stopping the cluster processes. Do not kill a child to save it.
 - Private worlds are visible only to their owner, members and server admins.
   Public worlds accept signed-in accounts; password worlds are discoverable
   and require a password for guests. Explicit members bypass passwords.
+- Guests can join worlds that are already running, but cannot start stopped
+  worlds. Only owners, members and server admins can start a world.
 - Owners create worlds, edit settings while stopped, grant/remove members,
   and request an immediate save-and-stop. Admins can see/join/manage every
   world regardless of visibility/password. These permissions do not grant
