@@ -132,11 +132,29 @@ The Return to lobby HUD action comes before Self-destruct and is also available
 while waiting as a ghost. Returning leaves the body and inventory in the world.
 Ghost spawner/minigame interfaces are disabled; DNR and corpse re-entry remain.
 
-Fresh-map preparation derives the upstream wreck and adds six normal readable
-paper items using `_maps/babylon/lore.json` and `map_overlay.py`. Existing saved
-builds are not overwritten or reseeded. The papers introduce Project Mnemosyne,
-Dr. Mara Vale's recall, evacuation and the continuity watchdog. Their types and
-locations persist through saves; there is no separate repeatable paper spawner.
+Fresh-map preparation derives the upstream wreck and applies two Babylon-only
+overlays with `map_overlay.py`: `_maps/babylon/vault_annex.json` splices the
+generation interlock, the inner vault doors and the sealed continuity annex
+north of the vault into the map, and `_maps/babylon/lore.json` places fourteen
+lore objects (open papers, flat satchels hidden under floor tiles, sealed
+crates in the vault, and papers in the annex). Existing saved builds are not
+overwritten or reseeded. Draft text and the canon live in `modular_babylon/lore/`.
+Their types and locations persist through saves; there is no separate
+repeatable paper spawner.
+
+Vault progression: the outer vault's generation interlock stores and consumes
+nothing. It reads live generation on the cable beneath it, subtracts SMES
+output on that powernet, and releases the locks only after that figure holds
+at or above 2 MW for 30 seconds, which in practice means a running reactor.
+The inner doors are on a separate continuity interlock in the first chamber: a
+conscious human starts a 60-minute real-time sequence and must stay alive for
+all of it, or it resets. Once opened, the inner doors stay open and the fact is
+saved with the world. The watchdog server in the annex prints a core log built
+from the world's own re-seat and unlock history.
+
+Survival: in Babylon, hunger and thirst are lethal for living crew. Below the
+starving and parched thresholds a human takes ramping brute and toxin damage
+each second, with a chat warning every 30 seconds. Drones are unaffected.
 The standalone preparation script now also requires Python 3.11+ (`-Python`
 can supply its path; otherwise it uses uv's Python or the installed `python`).
 

@@ -18,6 +18,7 @@ applied to the fresh upstream map at preparation time, without a copied map.
 | `code/__HELPERS/priority_announce.dm` | Suppress round announcements and command reports in the builder world. |
 | `modular_zubbers/code/modules/storyteller/divergency_report.dm` | Suppress round-start station-trait reporting. |
 | `code/modules/client/client_procs.dm` | Validate single-use lobby admission before registering a child client or creating an avatar. Standalone builds restrict access to their configured owner. |
+| `tgui/packages/tgui/interfaces/VaultController.tsx` | Render the Babylon generation interlock (live generation, ignored battery output, hold timer) when the controller sends those fields; the upstream charge view is unchanged otherwise. Rebuild the TGUI bundle after editing. |
 
 Keep these patches small. Do not copy complete upstream files from the local
 prototype. When upstream changes a hook's surrounding procedure, review its

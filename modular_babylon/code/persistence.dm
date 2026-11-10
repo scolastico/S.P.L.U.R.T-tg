@@ -351,6 +351,7 @@
 	if(research)
 		state["research"] = list("nodes" = research.researched_nodes.Copy(), "designs" = research.researched_designs.Copy(), "points" = research.research_points.Copy())
 	state["sun"] = list("azimuth" = SSsun.azimuth, "azimuth_mod" = SSsun.azimuth_mod, "base_rotation" = SSsun.base_rotation)
+	state["lore"] = GLOB.babylon_lore.snapshot()
 	checkpoint_capture_ms = (REALTIMEOFDAY - checkpoint_started) * 100
 	release_checkpoint()
 	CHECK_TICK
@@ -569,6 +570,7 @@
 			research.add_design_by_id(design)
 		research.research_points = research_data["points"]
 		research.recalculate_nodes()
+	GLOB.babylon_lore.restore(state["lore"])
 	to_chat(world, span_notice("Babylon resumed from [last_save]."))
 
 // Group membership is derived from the saved IDs after every door exists.

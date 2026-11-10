@@ -29,6 +29,7 @@
 	drone_profile = capture_drone_profile()
 	respawn_pending = TRUE
 	respawn_ready_at = world.time + 60 SECONDS
+	GLOB.babylon_lore.record_reseat(dead_drone)
 	QDEL_NULL(destruct_action)
 	to_chat(world, span_notice("Babylon drone lost. Respawn becomes available in 60 seconds."))
 

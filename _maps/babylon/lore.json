@@ -1,8 +1,16 @@
 [
   {"area": "/area/ruin/space/bb13/engineering/sec_eng", "paper": "/obj/item/paper/babylon/watchdog"},
-  {"area": "/area/ruin/space/bb13/research", "paper": "/obj/item/paper/babylon/research"},
+  {"area": "/area/ruin/space/bb13/engineering/engine", "paper": "/obj/item/paper/babylon/restart"},
   {"area": "/area/ruin/space/bb13/medical", "paper": "/obj/item/paper/babylon/triage"},
   {"area": "/area/ruin/space/bb13/bridge", "paper": "/obj/item/paper/babylon/recall"},
   {"area": "/area/ruin/space/bb13/engineering/atmos", "paper": "/obj/item/paper/babylon/pressure"},
-  {"area": "/area/ruin/space/bb13/service/chapel", "paper": "/obj/item/paper/babylon/last_light"}
+  {"area": "/area/ruin/space/bb13/service/chapel", "paper": "/obj/item/paper/babylon/last_light"},
+  {"area": "/area/ruin/space/bb13/research", "paper": "/obj/item/storage/backpack/satchel/flat/babylon/research", "hidden": true},
+  {"area": "/area/ruin/space/bb13/engineering/n_solars_control", "paper": "/obj/item/storage/backpack/satchel/flat/babylon/cell", "hidden": true},
+  {"area": "/area/ruin/space/bb13/service", "paper": "/obj/item/storage/backpack/satchel/flat/babylon/letter", "hidden": true},
+  {"area": "/area/ruin/space/bb13/engineering/vault", "paper": "/obj/structure/closet/crate/babylon/ledger", "within": [39, 58, 43, 60]},
+  {"area": "/area/ruin/space/bb13/engineering/vault", "paper": "/obj/structure/closet/crate/babylon/housing", "within": [39, 58, 43, 60]},
+  {"area": "/area/ruin/space/bb13/engineering/vault", "paper": "/obj/item/paper/babylon/interlock", "within": [39, 58, 43, 61]},
+  {"area": "/area/ruin/space/bb13/engineering/vault/inner", "paper": "/obj/item/paper/babylon/transcript", "within": [39, 64, 43, 67]},
+  {"area": "/area/ruin/space/bb13/engineering/vault/inner", "paper": "/obj/item/paper/babylon/vale_final", "within": [39, 64, 43, 67]}
 ]

@@ -60,6 +60,7 @@
 			for(var/player_key in player_sessions)
 				var/datum/babylon_save/player = player_sessions[player_key]
 				tick_player(player, GLOB.directory[player_key])
+			tick_survival()
 		if(length(GLOB.clients) && world.time >= next_autosave_at - 30 SECONDS && !autosave_countdown_active && !draining)
 			next_autosave_at = world.time + 15 MINUTES + 30 SECONDS
 			INVOKE_ASYNC(src, PROC_REF(countdown_autosave))

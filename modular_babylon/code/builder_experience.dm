@@ -1,14 +1,14 @@
 // Builder-only behavior; ordinary SPLURT drones and observers remain unchanged.
 /mob/living/basic/drone/babylon
-	laws = "1. Restore Babylon: build, repair, research and improve a lasting home.\n2. Preserve other survivors and their work; cooperate with the people sharing this world.\n3. Recover the station's lost records. Your future is yours to construct."
+	laws = "1. Restore Babylon: build, repair, research and improve a lasting home.\n2. Preserve the other survivors and their work; cooperate with whoever shares this world.\n3. Recover what the station lost. Your future is yours to construct."
 	flavortext = {"<div class='notice'><b>BABYLON // CONTINUITY WATCHDOG</b><br>
-Reserve power: sufficient. Crew heartbeat: absent. Isolation timer: unreadable.<br>
+Reserve cell: threshold reached. Crew heartbeat: absent. Isolation timer: unreadable.<br>
 Your optics clear on a station that has almost forgotten how to be a station.<br><br>
-One memory survives: a scientist severing the command uplink. <i>Dr. Mara Vale. Access revoked. Classified: rogue.</i>
-Her voice is quieter than the alarms: <i>When the lights return, make this somewhere worth coming back to.</i><br><br>
-The watchdog has reactivated your chassis. Restore power, salvage the wreck, and build a home with whoever wakes beside you.
-Scattered records may explain why everyone left, and why someone wanted the drones to remain.<br>
-Your equipment is finite. Replacement chassis are empty; recover your tools or make new ones.</div>"}
+You know things you cannot remember learning. Which way the cables run. That nothing here has to stay the way you found it.
+A woman's voice, quieter than the alarms: <i>When the lights return, make this somewhere worth coming back to.</i><br><br>
+The watchdog has woken your chassis. Restore power, salvage the wreck, and build a home with whoever wakes beside you.
+Scattered records may explain why everyone left, and why someone wanted the little machines to remain.<br>
+Your equipment is finite. Replacement shells are empty; recover your tools or make new ones.</div>"}
 
 /mob/living/basic/drone/babylon/Initialize(mapload)
 	. = ..()

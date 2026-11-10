@@ -92,3 +92,17 @@ powershell -File tools/babylon/Test-Persistence.ps1 `
 The test refuses an occupied port, the private prototype's port, or an existing
 saved world. It only stops the process it launched. Generated results, logs,
 map and checkpoint files remain ignored in the disposable checkout.
+
+## Lore, vault annex and survival (2026-11-10)
+
+- `babylon.dme -DCBT` and `babylon-test.dme -DCBT` compile with zero
+  errors/warnings on Dream Maker 516 after adding `vault.dm`, `survival.dm`,
+  the rewritten `lore.dm` and the VaultController TGUI change; the TGUI bundle
+  rebuilt successfully with `bun run tgui:build`.
+- All 38 supervisor Python tests pass. The map overlay test now checks the
+  46-tile vault annex patch, the 14 lore placements, that lore only lands on
+  floor tiles, and that the annex is enclosed by indestructible walls.
+- Not yet exercised at runtime: a fresh world with the annex loaded, the
+  generation interlock against a running reactor, the one-hour pulse sequence,
+  the saved `lore` state across a checkpoint, and lethal hunger/thirst on a
+  human. Run the native smoke test in a disposable world before hosting.
