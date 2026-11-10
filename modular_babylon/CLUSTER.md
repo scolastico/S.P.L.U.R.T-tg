@@ -193,3 +193,43 @@ abuse/load testing, operational backup/restore tooling, stronger crash/launch
 reconciliation, schema migrations, moderation/bans, delegated manager roles,
 and a controlled update policy for worlds saved by older game builds. Worlds
 are isolated processes/directories, not an OS security sandbox.
+
+## Persistence repairs carried over from the local prototype
+
+Checkpoints retain air-alarm threshold datums and selected mode, cycling-pump
+targets/side links/removability, portable-canister connector attachments, and
+computer/frame circuit-board references. Restored doors settle interrupted
+animations at their saved physical position. Saved pumps rebuild their links
+without running fresh-install door-opening sequences. Reopening a world does
+not seed round-start vermin, hidden loot, or weakpoints.
+
+Older saves recover missing circuit references from their saved contents and
+missing canister attachments from an anchored device on the same connector
+tile. An explicit disconnected state in a newer save stays disconnected.
+Legacy Babylon cycling pumps are recoverable as removable player-built pumps;
+the original wreck contains no such pumps. Settings never recorded by an older
+save, such as custom alarm thresholds, cannot be reconstructed retroactively.
+
+Invalid material entries are removed before UI generation and stock accounting
+without changing valid material quantities. This prevents the autolathe's
+`materials: null` UI crash. Fault injection and arbitrary inspection remain
+confined to the separate `babylon-test.dme` build.
+
+The explicit legacy regression uses an external workshop checkpoint read-only
+and stages its own world/config/binaries under a new test directory:
+
+```powershell
+python services/supervisor/smoke_reload_fixes.py `
+  --dreamdaemon C:\BYOND\bin\dd.exe `
+  --config-directory C:\BabylonTestConfig `
+  --checkpoint C:\BabylonFixtures\workshop-save `
+  --data-directory data\babylon-supervisor\reload-regression-1 `
+  --port 1459
+```
+
+Compile `babylon.dme` and `babylon-test.dme` first. The fixture needs an R&D
+console, autolathe, alarm, cycling airlock pump, and at least two connected
+canisters. The regression strips the newly added fields in its disposable
+copy, then checks legacy recovery, real tool operations, a second player's
+inventory, and a save/reload with the new fields. It refuses occupied ports
+and existing test directories and never writes to the supplied checkpoint.

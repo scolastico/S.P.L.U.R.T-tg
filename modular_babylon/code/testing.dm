@@ -145,3 +145,8 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 		qdel(target)
 		return list("ok" = TRUE)
 	return list("error" = "Unknown admin action")
+
+// Reproduce an invalid material identity without changing real stock.
+/datum/material_container/proc/babylon_test_invalid_material()
+	materials[null] = 0
+	return TRUE

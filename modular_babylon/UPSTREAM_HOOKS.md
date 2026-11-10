@@ -1,8 +1,9 @@
 # Upstream integration hooks
 
 Babylon is opt-in: compile `babylon.dme`. The upstream `tgstation.dme` is
-unchanged. All seven non-modular edits are guarded by `BABYLON_BUILDER` and
-marked `BABYLON13`. Ordinary SPLURT builds compile those blocks out.
+unchanged. The nine modified upstream DM files use hooks guarded by
+`BABYLON_BUILDER` and marked `BABYLON13`. Ordinary SPLURT builds compile
+those blocks out.
 
 The wrapper also defines upstream's `ABSOLUTE_MINIMUM` flag to skip the
 separate Interlink/cafe map loader. Builder behavior, restricted observer
@@ -18,6 +19,8 @@ applied to the fresh upstream map at preparation time, without a copied map.
 | `code/__HELPERS/priority_announce.dm` | Suppress round announcements and command reports in the builder world. |
 | `modular_zubbers/code/modules/storyteller/divergency_report.dm` | Suppress round-start station-trait reporting. |
 | `code/modules/client/client_procs.dm` | Validate single-use lobby admission before registering a child client or creating an avatar. Standalone builds restrict access to their configured owner. |
+| `code/modules/atmospherics/machinery/components/unary_devices/airlock_pump.dm` | Skip fresh-install door animations for saved pumps; rebuild their saved connections after restoration. |
+| `code/datums/materials/material_container/material_container.dm` | Discard invalid material keys before UI generation and stock accounting, preserving valid quantities. |
 | `tgui/packages/tgui/interfaces/VaultController.tsx` | Render the Babylon generation interlock (live generation, ignored battery output, hold timer) when the controller sends those fields; the upstream charge view is unchanged otherwise. Rebuild the TGUI bundle after editing. |
 
 Keep these patches small. Do not copy complete upstream files from the local

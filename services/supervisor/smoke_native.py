@@ -22,6 +22,10 @@ def main():
     parser.add_argument("--child-port", type=int, default=1458)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
+    # Closet/crate contents are generated on first opening; count the papers
+    # available immediately after initialization, including satchel contents.
+    lore = json.loads((root / "_maps/babylon/lore.json").read_text())
+    expected_lore = sum(not item["paper"].startswith("/obj/structure/closet/") for item in lore)
     data = Path(args.data_directory).resolve()
     if data.exists():
         raise RuntimeError("Use a new empty test data directory")
@@ -101,7 +105,7 @@ def main():
             assert experience[key] == 0, experience
         for key in ("spawners_hidden", "minigames_hidden", "dnr_present", "reenter_present", "return_before_destruct"):
             assert experience[key], experience
-        assert experience["lore_papers"] == 6, experience
+        assert experience["lore_papers"] == expected_lore, experience
         player = call(run, "session", "ensure_player", ["smokefriend"])
         friend_ref = player["ref"]
         fields = debug(run, "inspect", dict(target=friend_ref, vars=["builder"]))["vars"]
@@ -137,7 +141,7 @@ def main():
         assert fields["builder"]["name"] == "Second persistent drone", fields
         assert fields["respawn_pending"], fields
         papers = debug(run, "find", dict(type="/obj/item/paper/babylon", limit=100))["matches"]
-        assert len(papers) == 6, papers
+        assert len(papers) == expected_lore, papers
         # Exercise the actual respawn path, not only the replacement initializer.
         debug(run, "set_var", dict(target=restored_friend, var="respawn_ready_at", value=0))
         assert call(run, restored_friend, "respawn_builder"), "Respawn failed"
@@ -157,7 +161,7 @@ def main():
                       replay_rejected=True, admin_private_bypass=True, multiplayer_roster=True,
                       second_inventory=True, second_respawn=True, enclosed_drone=True,
                       empty_respawn=True, ghost_hud_trimmed=True, physical_cafe_turfs=0,
-                      lore_papers=6, return_button_order=True,
+                      lore_papers=expected_lore, return_button_order=True,
                       generations=[generation, generation2])
         (data / "result.json").write_text(json.dumps(report, indent=2))
         print(json.dumps(report, indent=2))

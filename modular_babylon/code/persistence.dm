@@ -65,6 +65,15 @@
 		_MakeLocal()
 	return mat_container
 
+// An invalid material key must not abort UI generation or stock accounting.
+// Valid material identities and amounts are left untouched.
+/datum/material_container/proc/babylon_prune_invalid_materials()
+	if(!islist(materials))
+		return
+	for(var/material in materials.Copy())
+		if(!istype(material, /datum/material))
+			materials.Remove(material)
+
 /datum/babylon_save/proc/assign_id(atom/thing)
 	if(!thing.babylon_save_id)
 		thing.babylon_save_id = "bb[next_id++]"
@@ -125,6 +134,28 @@
 		var/value = thing.vars[field]
 		if(isnull(value) || isnum(value) || istext(value) || ispath(value) || (field in list_fields))
 			fields[field] = encode_value(value)
+	if(istype(thing, /obj/machinery/portable_atmospherics))
+		var/obj/machinery/portable_atmospherics/portable = thing
+		// An explicit null distinguishes an intentionally detached device from
+		// older checkpoints which never recorded this relationship.
+		record["portable_port"] = encode_value(portable.connected_port)
+	if(istype(thing, /obj/machinery/airalarm))
+		var/obj/machinery/airalarm/alarm = thing
+		var/list/thresholds = list()
+		for(var/key in alarm.tlv_collection)
+			var/datum/tlv/threshold = alarm.tlv_collection[key]
+			thresholds += list(list("key" = encode_value(key), "type" = "[threshold.type]", "warning_min" = threshold.warning_min, "warning_max" = threshold.warning_max, "hazard_min" = threshold.hazard_min, "hazard_max" = threshold.hazard_max))
+		record["alarm_thresholds"] = thresholds
+		record["alarm_mode"] = alarm.selected_mode ? "[alarm.selected_mode.type]" : null
+	if(istype(thing, /obj/machinery/atmospherics/components/unary/airlock_pump))
+		var/obj/machinery/atmospherics/components/unary/airlock_pump/pump = thing
+		var/list/settings = list()
+		for(var/field in list("can_unwrench", "internal_pressure_target", "external_pressure_target", "cycle_pressure_target", "allowed_pressure_error", "min_distro_pressure", "docked_side_pressure", "volume_rate", "cycle_timeout", "airlock_pump_distance_limit", "airlock_group_distance_limit", "valid_airlock_typepath", "cycling_set_up", "open_airlock_on_cycle", "is_cycling_audible"))
+			settings[field] = encode_value(pump.vars[field])
+		record["cycle_settings"] = settings
+		record["cycle_internal"] = encode_value(pump.internal_airlocks)
+		record["cycle_external"] = encode_value(pump.external_airlocks)
+		record["cycle_remaining"] = pump.on ? max(1, timeleft(pump.emergency_stop_timer)) : 0
 	if(thing.wires)
 		record["wires"] = list("colors" = thing.wires.colors.Copy(), "cut_wires" = thing.wires.cut_wires?.Copy())
 	if(istype(thing, /obj/machinery/atmospherics/components/unary/vent_pump))
@@ -435,6 +466,17 @@
 			if(field in thing.vars)
 				if(field != "connected_sensor")
 					thing.vars[field] = decode_value(references[field])
+		if((istype(thing, /obj/structure/frame/computer) || istype(thing, /obj/machinery)) && ("circuit" in thing.vars))
+			var/obj/item/circuitboard/board = thing.vars["circuit"]
+			if(QDELETED(board) || board.loc != thing)
+				// Legacy saves retained the board as a child but omitted the
+				// frame/machine's circuit reference. Preserve the construction
+				// stage: circuit_added() would reset an already wired frame.
+				thing.vars["circuit"] = null
+				for(var/obj/item/circuitboard/candidate in thing.contents)
+					if(!QDELETED(candidate) && (candidate in used_children))
+						thing.vars["circuit"] = candidate
+						break
 		if(istype(thing, /obj/machinery/airalarm) && references["connected_sensor"])
 			var/obj/machinery/airalarm/alarm = thing
 			var/obj/machinery/air_sensor/sensor = decode_value(references["connected_sensor"])
@@ -470,7 +512,8 @@
 				if(istype(mats))
 					for(var/matpath in record["materials"])
 						var/datum/material/material = SSmaterials.get_material(text2path(matpath))
-						mats.materials[material] = record["materials"][matpath]
+						if(istype(material))
+							mats.materials[material] = record["materials"][matpath]
 			machine.power_change()
 		if(istype(thing, /obj/item/modular_computer) && record["programs"])
 			var/obj/item/modular_computer/computer = thing
@@ -529,8 +572,45 @@
 			var/turf/open/open = tile
 			restore_gas(open.return_air(), record["gas"])
 		CHECK_TICK
+	restore_portable_connections(records)
 	SSmachines.makepowernets()
 	restore_airlock_configuration(state)
+	// Door animations and their sleeping procs cannot survive a process restart.
+	// Settle at the saved physical position, then rebuild pump links without
+	// running set_links' fresh-install open/close animations over the snapshot.
+	for(var/list/record as anything in records)
+		var/atom/thing = restored_atoms[record["id"]]
+		if(istype(thing, /obj/machinery/door/airlock))
+			var/obj/machinery/door/airlock/door = thing
+			door.operating = FALSE
+			door.delayed_close_requested = FALSE
+			door.set_airlock_state(door.density ? AIRLOCK_CLOSED : AIRLOCK_OPEN)
+			door.set_opacity(door.density && !door.glass)
+			if(door.filler)
+				door.filler.set_density(door.density)
+				door.filler.set_opacity(door.opacity)
+			if(door.density)
+				door.flags_1 |= PREVENT_CLICK_UNDER_1
+			else
+				door.flags_1 &= ~PREVENT_CLICK_UNDER_1
+			door.air_update_turf(TRUE, FALSE)
+			if(!door.density && door.autoclose)
+				door.autoclose_in(8 SECONDS)
+		if(istype(thing, /obj/machinery/airalarm) && record["alarm_thresholds"])
+			var/obj/machinery/airalarm/alarm = thing
+			for(var/list/saved as anything in record["alarm_thresholds"])
+				var/key = decode_value(saved["key"])
+				var/threshold_type = text2path(saved["type"])
+				var/datum/tlv/threshold = new threshold_type()
+				for(var/field in list("warning_min", "warning_max", "hazard_min", "hazard_max"))
+					threshold.vars[field] = saved[field]
+				qdel(alarm.tlv_collection[key])
+				alarm.tlv_collection[key] = threshold
+			if(record["alarm_mode"])
+				alarm.select_mode(alarm, text2path(record["alarm_mode"]), should_apply = FALSE)
+		if(istype(thing, /obj/machinery/atmospherics/components/unary/airlock_pump))
+			restore_cycle_pump(thing, record)
+
 	for(var/list/record as anything in records)
 		var/atom/thing = restored_atoms[record["id"]]
 		if(istype(thing, /obj/machinery/power/solar_control))
@@ -575,6 +655,65 @@
 
 // Group membership is derived from the saved IDs after every door exists.
 // Do not rely solely on the cached close_others list from a previous world.
+/datum/babylon_save/proc/restore_portable_connections(list/records)
+	// Both sides and their pipe networks/gases must exist before connect().
+	// The native path also restores anchoring, offsets and atmos processing.
+	for(var/list/record as anything in records)
+		var/obj/machinery/portable_atmospherics/portable = restored_atoms[record["id"]]
+		if(!istype(portable))
+			continue
+		var/obj/machinery/atmospherics/components/unary/portables_connector/port
+		if("portable_port" in record)
+			port = decode_value(record["portable_port"])
+		else if(portable.anchored)
+			// Before this field was saved, wrenching left only the anchored
+			// flag. Recover a matching free connector on that same tile.
+			for(var/obj/machinery/atmospherics/components/unary/portables_connector/candidate in get_turf(portable))
+				if(!candidate.connected_device)
+					port = candidate
+					break
+		if(!istype(port) || port.loc != get_turf(portable) || port.connected_device)
+			continue
+		if(portable.connect(port) && !("portable_port" in record))
+			migration_notes |= "Recovered anchored portable-atmos connector attachment from legacy save."
+
+/datum/babylon_save/proc/restore_cycle_pump(obj/machinery/atmospherics/components/unary/airlock_pump/pump, list/record)
+	var/list/settings = record["cycle_settings"]
+	if(settings)
+		for(var/field in settings)
+			pump.vars[field] = decode_value(settings[field])
+		pump.internal_airlocks = decode_value(record["cycle_internal"]) || list()
+		pump.external_airlocks = decode_value(record["cycle_external"]) || list()
+	else
+		// Older checkpoints lack pump settings. Find the existing pair without
+		// closing the outer/opening the inner door as if installing a new pump.
+		var/perpendicular_dirs = NSCOMPONENT(pump.dir) ? WEST|EAST : NORTH|SOUTH
+		pump.internal_airlocks = pump.get_adjacent_airlocks(pump.find_density(get_turf(pump), pump.dir), perpendicular_dirs)
+		pump.external_airlocks = pump.get_adjacent_airlocks(pump.find_density(get_turf(pump), REVERSE_DIR(pump.dir)), perpendicular_dirs)
+		if(!length(pump.internal_airlocks))
+			for(var/obj/machinery/door/airlock/door as anything in pump.external_airlocks)
+				pump.internal_airlocks |= door.close_others
+			pump.internal_airlocks -= pump.external_airlocks
+		if(!length(pump.external_airlocks))
+			for(var/obj/machinery/door/airlock/door as anything in pump.internal_airlocks)
+				pump.external_airlocks |= door.close_others
+			pump.external_airlocks -= pump.internal_airlocks
+		pump.cycling_set_up = length(pump.internal_airlocks) && length(pump.external_airlocks)
+		// The original Babylon wreck has no airlock pumps. Legacy pumps were
+		// player-built; map loading incorrectly made them permanently secured.
+		pump.can_unwrench = TRUE
+		migration_notes |= "Recovered removable player-built airlock pump from legacy save."
+	for(var/obj/machinery/door/airlock/door as anything in (pump.internal_airlocks + pump.external_airlocks))
+		door.set_cycle_pump(pump)
+		pump.RegisterSignal(door, COMSIG_QDELETING, TYPE_PROC_REF(/obj/machinery/atmospherics/components/unary/airlock_pump, unlink_airlock))
+	pump.airlocks_animating = FALSE
+	pump.check_turfs()
+	if(pump.on && pump.cycling_set_up)
+		if(isnull(pump.cycle_pressure_target))
+			pump.cycle_pressure_target = pump.pump_direction == ATMOS_DIRECTION_RELEASING ? pump.internal_pressure_target : pump.external_pressure_target
+		pump.emergency_stop_timer = addtimer(CALLBACK(pump, TYPE_PROC_REF(/obj/machinery/atmospherics/components/unary/airlock_pump, emergency_stop)), record["cycle_remaining"] || pump.cycle_timeout, TIMER_STOPPABLE|TIMER_UNIQUE|TIMER_OVERRIDE|TIMER_DELETE_ME)
+	pump.update_appearance()
+
 /datum/babylon_save/proc/restore_airlock_configuration(list/state)
 	var/list/doors = list()
 	for(var/list/record as anything in state["records"])

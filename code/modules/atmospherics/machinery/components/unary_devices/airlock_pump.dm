@@ -130,6 +130,11 @@
 
 /obj/machinery/atmospherics/components/unary/airlock_pump/post_machine_initialize()
 	. = ..()
+#ifdef BABYLON_BUILDER // BABYLON13
+	// Rebuild saved links after restoration; fresh-install animations move doors.
+	if(babylon_save_id && GLOB.babylon_save?.resume_data)
+		return
+#endif
 	set_links()
 	// If we are on docked shuttle - setup docking variables
 	// Example - 'build your own shuttle' evac vessel

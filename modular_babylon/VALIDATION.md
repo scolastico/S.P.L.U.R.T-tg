@@ -106,3 +106,31 @@ map and checkpoint files remain ignored in the disposable checkout.
   generation interlock against a running reactor, the one-hour pulse sequence,
   the saved `lore` state across a checkpoint, and lethal hunger/thirst on a
   human. Run the native smoke test in a disposable world before hosting.
+
+## Local persistence fixes ported to the multiplayer fork (2026-11-10)
+
+- Production `babylon.dme`, `babylon-test.dme`, and ordinary `tgstation.dme`
+  compile with zero errors and warnings on Dream Maker 516.1686. All 38
+  supervisor Python tests pass.
+- `smoke_reload_fixes.py` passes against a read-only copy of the original PoC
+  workshop checkpoint, with new persistence fields deliberately removed in
+  the disposable copy. It verifies no critter reseeding; consistent door
+  collision/animation; alarm threshold and mode persistence; cycling-pump
+  targets, side links and removability; bidirectional canister attachments
+  and deliberate detachment; real circuit extraction/reinstallation and
+  console completion; invalid-material UI recovery without changing stock;
+  and a second player's saved roster entry.
+- Evidence: ignored local artifact
+  `data/babylon-supervisor/ported-reload-fixes-2/result.json`; checkpoint
+  generations `save-20261110-235443-100` and `save-20261110-235625-101`.
+- The managed native smoke also passes HTTP ticket redemption/replay checks,
+  admin admission, two-player inventories, empty respawn, trimmed ghost HUD,
+  return-button order, no physical cafe, and real save/stop/restart. Evidence:
+  `data/babylon-supervisor/ported-managed-2/result.json`.
+- The fresh managed test loads the newer annex and retains its 12 immediately
+  available lore papers through reload. The two sealed lore crates populate
+  on first opening and are excluded from that initial-paper count. The pulse
+  sequence, interlock behavior and human survival scenarios remain separate
+  tests; this port does not change their implementation.
+- Test children exit after completion. No private player save, live world,
+  credential, or generated binary is committed.

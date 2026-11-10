@@ -588,6 +588,9 @@
 //=========================================HIGH LEVEL==========================================
 /// returns the total amount of material in the container
 /datum/material_container/proc/total_amount()
+#ifdef BABYLON_BUILDER // BABYLON13
+	babylon_prune_invalid_materials()
+#endif
 	. = 0
 	for(var/i in materials)
 		. += get_material_amount(i)
@@ -754,6 +757,9 @@
 
 /// List format is list(material_name = list(amount = ..., ref = ..., etc.))
 /datum/material_container/ui_data(mob/user)
+#ifdef BABYLON_BUILDER // BABYLON13
+	babylon_prune_invalid_materials()
+#endif
 	var/list/data = list()
 
 	for(var/datum/material/material as anything in materials)
