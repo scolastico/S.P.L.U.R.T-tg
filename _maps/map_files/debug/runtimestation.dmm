@@ -103,7 +103,7 @@
 /turf/open/floor/plating,
 /area/station/engineering/gravity_generator)
 "aK" = (
-/obj/structure/table,
+/obj/structure/closet/radiation,
 /obj/item/rcd_ammo/large,
 /obj/item/rcd_ammo/large,
 /obj/item/rcd_ammo/large,
