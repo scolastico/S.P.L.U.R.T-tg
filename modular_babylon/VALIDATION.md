@@ -164,3 +164,15 @@ map and checkpoint files remain ignored in the disposable checkout.
   disposable probe world was deleted; its runtime files were removed too.
 - The primary lobby was restarted on port 1361. The supervisor and game-world
   processes do not need a restart for these browser changes.
+
+## Windows cluster launchers (2026-11-11)
+
+- Both root `.cmd` launchers were exercised from a different working directory,
+  including their Python auto-detection and double-click-style pause behavior.
+  Duplicate Start and repeated Stop were verified.
+- A disposable real world was started, saved/stopped through the shutdown
+  helper, and its committed map/state checkpoint verified before cleanup.
+  The test world was then deleted through the normal supervisor API.
+- All 47 Python tests pass, including startup waiting, multi-world stop
+  requests, save-failure retention, and timeout retention. No launcher can
+  force-kill a child world. The cluster was left stopped after validation.

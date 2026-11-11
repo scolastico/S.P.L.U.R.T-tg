@@ -1,11 +1,25 @@
-param([Parameter(Mandatory=$true)][string]$Python)
+param([string]$Python)
 $ErrorActionPreference='Stop'
 $root=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$pythonPath=(Resolve-Path -LiteralPath $Python).Path
+$pythonPath=& (Join-Path $PSScriptRoot 'Find-Python.ps1') -Python $Python
 $supervisorFile=Join-Path $root 'babylon-supervisor-config.json'
 $lobbyFile=Join-Path $root 'babylon-lobby-config.json'
 $config=Get-Content -LiteralPath $supervisorFile -Raw|ConvertFrom-Json
 $lobby=Get-Content -LiteralPath $lobbyFile -Raw|ConvertFrom-Json
+$processFile=Join-Path $config.data_directory 'cluster-processes.json'
+if(Test-Path -LiteralPath $processFile){
+    $record=Get-Content -LiteralPath $processFile -Raw|ConvertFrom-Json
+    $existingMenu=Get-CimInstance Win32_Process -Filter "ProcessId=$($record.lobby_pid)"
+    $existingService=Get-CimInstance Win32_Process -Filter "ProcessId=$($record.supervisor_pid)"
+    if($existingMenu -and $existingService -and
+       $existingMenu.ExecutablePath -eq $config.dreamdaemon -and
+       $existingMenu.CommandLine.Contains($lobbyFile) -and
+       $existingService.CommandLine.Contains((Join-Path $root 'services\supervisor\supervisor.py')) -and
+       $existingService.CommandLine.Contains($supervisorFile)){
+        Write-Host "Babylon is already running: $($config.lobby_address)"
+        return
+    }
+}
 foreach($name in @('babylon.dmb','babylon.rsc','babylon-lobby.dmb','babylon-lobby.rsc')){
     if(!(Test-Path -LiteralPath (Join-Path $root $name))){throw "Missing $name; compile the production and lobby builds first."}
 }

@@ -45,6 +45,18 @@ Initialization generates a fresh shared lobby credential in two ignored JSON
 files. It refuses to overwrite them. Admin accounts come only from the supplied
 `-Admins` list; no account is automatically granted access.
 
+Once configured and compiled, double-click **Start Babylon Server.cmd** or
+**Stop Babylon Server.cmd** in the repository root. They find Python through
+`uv`, the Windows `py` launcher, or `python` on PATH. The PowerShell entry points
+also accept `-Python` for an explicit executable path.
+
+Start reports an already-running cluster instead of launching duplicates.
+Stop closes the lobby to prevent new starts, waits for any starting worlds to
+initialize, requests a final save/stop for every running world, and waits for
+confirmed exits before stopping the supervisor. A save failure or timeout
+leaves the supervisor and affected children running for recovery; it never
+force-kills a world. The scripts do not delete worlds or checkpoints.
+
 For manual operation, run Python with
 `services/supervisor/supervisor.py --config babylon-supervisor-config.json` and
 DreamDaemon with `babylon-lobby.dmb 1361 -trusted -close -params
