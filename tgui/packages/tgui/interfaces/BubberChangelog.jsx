@@ -402,26 +402,19 @@ export const BubberChangelog = (props) => {
 
   const header = (
     <Section>
-      <h1>S.P.L.U.R.T-tg</h1> {/* SPLURT EDIT ADDITION: Changelog 3 */}
+      <h1>Babylon13</h1> {/* BABYLON13: point the changelog at this fork */}
       <p>
         <b>Thanks to: </b>
-        /tg/station 13, Effigy, Stellar Haven, Baystation 12, /vg/station,
-        NTstation, CDK Station devs, FacepunchStation, GoonStation devs, the
-        original Space Station 13 developers, and the countless others who have
-        contributed to the game.
+        S.P.L.U.R.T-tg, Bubberstation, Skyrat, /tg/station 13, Effigy, Stellar
+        Haven, Baystation 12, /vg/station, NTstation, CDK Station devs,
+        FacepunchStation, GoonStation devs, the original Space Station 13
+        developers, and the countless others who have contributed to the game.
       </p>
       <p>
-        {'Current organization members can be found '}
-        <a href="https://github.com/orgs/SPLURT-Station/people">here</a>
+        {'The source code can be found '}
+        <a href="https://github.com/scolastico/babylon13">here</a>
         {', recent GitHub contributors can be found '}
-        <a href="https://github.com/SPLURT-Station/S.P.L.U.R.T-tg/pulse/monthly">
-          here
-        </a>
-        .
-      </p>
-      <p>
-        {'You can also join our discord '}
-        <a href="https://discord.com/invite/wynHVMzHzC">here</a>!
+        <a href="https://github.com/scolastico/babylon13/pulse/monthly">here</a>.
       </p>
       <DateDropdown
         dates={dates}
@@ -443,12 +436,12 @@ export const BubberChangelog = (props) => {
         setSelectedDateIndex={setSelectedDateIndex}
       />
       <h2>Licenses</h2>
-      <Section title="S.P.L.U.R.T-tg">
+      <Section title="Babylon13">
         <p>
           {'All code is licensed under '}
           <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPL v3</a>.
           {' See '}
-          <a href="https://github.com/SPLURT-Station/S.P.L.U.R.T-tg/blob/master/LICENSE">
+          <a href="https://github.com/scolastico/babylon13/blob/master/LICENSE">
             LICENSE
           </a>{' '}
           for more details.
