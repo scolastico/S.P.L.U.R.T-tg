@@ -2,10 +2,13 @@
 # BYOND's Linux runtime is x86. Build/run this image on linux/amd64.
 FROM ubuntu:24.04 AS toolchain
 ARG TARGETARCH
+ARG UBUNTU_MIRROR
 ENV DEBIAN_FRONTEND=noninteractive
 RUN test "$TARGETARCH" = amd64 \
  && dpkg --add-architecture i386 \
- && apt-get update && apt-get install -y --no-install-recommends \
+ && if [ -n "$UBUNTU_MIRROR" ]; then sed -i -E "s@http://(archive|security).ubuntu.com/ubuntu/?@${UBUNTU_MIRROR%/}@g" /etc/apt/sources.list.d/ubuntu.sources; fi \
+ && apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o APT::Update::Error-Mode=any update \
+ && apt-get install -y --no-install-recommends \
     ca-certificates curl unzip make python3 nodejs \
     libc6:i386 libstdc++6:i386 libgcc-s1:i386 zlib1g:i386 \
     libssl3t64:i386 libcurl4t64:i386 \
@@ -40,9 +43,12 @@ RUN DreamMaker -DCBT babylon-test.dme && DreamMaker -DCBT tgstation.dme \
  && node container/test_cleanup.cjs
 
 FROM ubuntu:24.04 AS runtime
+ARG UBUNTU_MIRROR
 ENV DEBIAN_FRONTEND=noninteractive
 RUN dpkg --add-architecture i386 \
- && apt-get update && apt-get install -y --no-install-recommends \
+ && if [ -n "$UBUNTU_MIRROR" ]; then sed -i -E "s@http://(archive|security).ubuntu.com/ubuntu/?@${UBUNTU_MIRROR%/}@g" /etc/apt/sources.list.d/ubuntu.sources; fi \
+ && apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o APT::Update::Error-Mode=any update \
+ && apt-get install -y --no-install-recommends \
     ca-certificates python3 libc6:i386 libstdc++6:i386 libgcc-s1:i386 \
     zlib1g:i386 libssl3t64:i386 libcurl4t64:i386 \
  && rm -rf /var/lib/apt/lists/* \

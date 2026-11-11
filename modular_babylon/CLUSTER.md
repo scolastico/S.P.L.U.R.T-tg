@@ -41,6 +41,10 @@ Compose 2.24.4+ is required. `compose.override.yml` uses
 `image: !override ghcr.io/scolastico/babylon13:local` and `pull_policy: build`;
 it cannot select a downloaded game image even if `BABYLON_IMAGE_TAG` is set.
 Base images and pinned build dependencies are still downloaded when building.
+CI selects the independent kernel.org Ubuntu mirror with the Docker build
+argument `UBUNTU_MIRROR` to avoid the current Canonical DNS outage. A normal
+local build keeps Ubuntu's default mirrors; all mirrors use Ubuntu's signed
+repository metadata and the image's existing Ubuntu archive keys.
 
 The named `babylon-data` volume holds the database, worlds, logs and every
 checkpoint. Keep it when replacing images; `down -v` deletes this volume.

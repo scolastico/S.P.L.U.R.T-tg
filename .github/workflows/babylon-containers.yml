@@ -24,24 +24,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-        with:
-          driver-opts: network=host
-          buildkitd-config-inline: |
-            [dns]
-              nameservers = ["1.1.1.1", "8.8.8.8"]
-      - name: Inspect runner dependency resolver
-        run: |
-          cat /etc/resolv.conf
-          getent ahostsv4 archive.ubuntu.com || true
-          getent ahostsv4 github.com || true
       - name: Compile game, lobby and test builds; run regression tests
         uses: docker/build-push-action@v6
         with:
           context: .
           target: check
-          # Use the runner's resolver; nested bridge DNS can be unavailable.
-          network: host
-          allow: network.host
+          # Independent Ubuntu mirror: Canonical DNS outage (runner-images#15296).
+          build-args: UBUNTU_MIRROR=http://mirrors.edge.kernel.org/ubuntu
           platforms: linux/amd64
           push: false
           cache-from: type=gha,scope=babylon-build
@@ -58,16 +47,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-        with:
-          driver-opts: network=host
-          buildkitd-config-inline: |
-            [dns]
-              nameservers = ["1.1.1.1", "8.8.8.8"]
-      - name: Inspect runner dependency resolver
-        run: |
-          cat /etc/resolv.conf
-          getent ahostsv4 archive.ubuntu.com || true
-          getent ahostsv4 github.com || true
       - name: Choose image tags
         id: image
         env:
@@ -97,8 +76,8 @@ jobs:
         with:
           context: .
           target: runtime
-          network: host
-          allow: network.host
+          # Independent Ubuntu mirror: Canonical DNS outage (runner-images#15296).
+          build-args: UBUNTU_MIRROR=http://mirrors.edge.kernel.org/ubuntu
           platforms: linux/amd64
           push: true
           tags: ${{ steps.image.outputs.tags }}
