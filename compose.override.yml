@@ -1,0 +1,9 @@
+# Automatically loaded by `docker compose up`. This checkout always builds
+# its own local image and never pulls a prebuilt game image from GHCR.
+services:
+  babylon:
+    image: !override ghcr.io/scolastico/babylon13:local
+    pull_policy: build
+    build:
+      context: .
+      target: runtime

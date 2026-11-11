@@ -1,0 +1,97 @@
+name: Babylon containers
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+# A new default-branch commit cancels the previous unstable run, including
+# build/publish/cleanup. PRs are isolated by ref; releases have their own groups.
+concurrency:
+  group: babylon-containers-${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'release' }}
+
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Compile game, lobby and test builds; run regression tests
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: check
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha,scope=babylon-build
+          cache-to: type=gha,mode=max,scope=babylon-build
+
+  publish:
+    needs: compile
+    if: github.event_name == 'release' || (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Choose image tags
+        id: image
+        env:
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          image="ghcr.io/${REPOSITORY,,}"
+          echo "name=$image" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT" = release ]; then
+            [[ "$RELEASE_TAG" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]] || { echo 'Release tag is not a valid container tag'; exit 1; }
+            echo "version=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+            printf 'tags<<TAGS\n%s:latest\n%s:%s\nTAGS\n' "$image" "$image" "$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=unstable-$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            # Publish the cleanup marker before moving the public unstable tag.
+            printf 'tags<<TAGS\n%s:unstable-%s\n%s:unstable\nTAGS\n' "$image" "$GITHUB_SHA" "$image" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runtime
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.image.outputs.tags }}
+          # Keep one manifest per image, without orphan attestation manifests.
+          provenance: false
+          sbom: false
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.image.outputs.version }}
+          cache-from: type=gha,scope=babylon-build
+          cache-to: type=gha,mode=max,scope=babylon-build
+      - name: Delete superseded unstable images
+        if: github.event_name == 'push'
+        uses: actions/github-script@v7
+        env:
+          CURRENT_DIGEST: ${{ steps.build.outputs.digest }}
+        with:
+          script: |
+            const cleanup = require('./container/cleanup-unstable.cjs');
+            await cleanup({github, context, core, currentDigest: process.env.CURRENT_DIGEST});

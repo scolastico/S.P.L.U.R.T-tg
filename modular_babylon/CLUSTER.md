@@ -14,6 +14,82 @@ The private Babylon prototype is separate and is not migrated or restarted.
 - `babylon.dme` runs one Babylon station per process. Native Topic control and
   a small early client-admission hook connect it to the supervisor.
 
+## Docker on Linux (amd64)
+
+The root Dockerfile builds the pinned BYOND version, native rust-g/dreamluau
+libraries, TGUI, behavior trees, and both production programs. The final image
+runs as UID 10001 and keeps the supervisor API inside the container. The lobby
+and child DreamDaemon ports are the only published endpoints.
+
+Copy `.env.example` to `.env`, set `BABYLON_PUBLIC_HOST` to the hostname/IP
+players can reach, and set `BABYLON_ADMINS` to a comma-separated list of BYOND
+accounts. These grant lobby administration, not in-game SPLURT admin ranks.
+
+```sh
+# Local checkout: automatically includes compose.override.yml, builds :local.
+docker compose up -d --build
+docker compose logs -f
+docker compose down
+
+# Published image: explicitly omit the automatic local override.
+BABYLON_IMAGE_TAG=unstable docker compose -f compose.yml up -d
+# After a release exists, use latest or a literal release tag such as 1.0.0.
+BABYLON_IMAGE_TAG=1.0.0 docker compose -f compose.yml up -d
+```
+
+Compose 2.24.4+ is required. `compose.override.yml` uses
+`image: !override ghcr.io/scolastico/babylon13:local` and `pull_policy: build`;
+it cannot select a downloaded game image even if `BABYLON_IMAGE_TAG` is set.
+Base images and pinned build dependencies are still downloaded when building.
+
+The named `babylon-data` volume holds the database, worlds, logs and every
+checkpoint. Keep it when replacing images; `down -v` deletes this volume.
+The container locks its data volume so two instances cannot manage it at once.
+For a bind mount, make the directory writable by UID 10001. Existing private
+PoC saves are not automatically imported.
+
+All supported settings and defaults are listed in `.env.example`: lobby and
+world ports, internal API port, admin CSV, global/per-owner world limits,
+player limits, retained checkpoints, unused-world expiry, admission lifetime,
+empty grace and startup/shutdown timeouts. World port mappings must use the
+same host/container numbers because those ports are advertised to clients.
+For an advanced custom SPLURT config, mount a directory read-only and set
+`BABYLON_CONFIG_DIRECTORY` to its container path; it must contain `config.txt`
+including `comms.txt`. The supervisor generates each child's control key.
+`BABYLON_DATA_DIRECTORY` defaults to `/data` and should remain on a volume.
+
+SIGTERM closes the lobby, saves/stops worlds, and waits for confirmed child
+exits. Compose grants ten minutes by default. If changing timeouts, allow more
+than startup plus final-save time with `BABYLON_STOP_GRACE_PERIOD`. For plain
+Docker use `docker stop --time 600`; Docker's default short timeout can kill a
+world during its save. On save failure the process stays alive and retries;
+Docker can still force-kill it when its grace period expires.
+
+### Image publishing
+
+`.github/workflows/babylon-containers.yml` compiles production, test and
+ordinary upstream builds and runs Python/browser tests for PRs and pushes to
+`main`/`master`. Publication is restricted to the default branch (currently
+`master`) and published GitHub releases. PRs never log into GHCR.
+
+- A successful default-branch push replaces `:unstable`. A temporary
+  `:unstable-<commit>` marker permits cleanup even after a cancelled run; all
+  older marked unstable image versions are deleted after successful publishing.
+- Publishing release tag `1.0.0` attaches both `:1.0.0` and `:latest` to the
+  same image. Release tags are literal Docker tags; `v1.0.0` remains `:v1.0.0`.
+- Main/default-branch runs cancel older runs in their concurrency group. PRs
+  are grouped by ref; release runs use separate groups and are not cancelled.
+- Cleanup never deletes versions with `latest`, a release tag, or any other
+  non-unstable tag. Images use a single amd64 manifest without extra attestation
+  manifests, so obsolete unstable versions do not leave dangling child images.
+
+The workflow uses `GITHUB_TOKEN` with package-write permission and an OCI
+source label linking the package to this repository. For a pre-existing GHCR
+package, the repository must have package-admin access for cleanup. GHCR
+visibility is managed in the package's settings; a public repository does not
+automatically make a newly created package public. Private images need registry
+login. Existing documentation and map-viewer workflows are unchanged.
+
 Players authenticate with BYOND; ckeys are taken from server-side clients.
 The API trusts the lobby credential, not arbitrary HTTP callers claiming ckeys.
 Do not expose the supervisor API to the internet or publish configuration files.

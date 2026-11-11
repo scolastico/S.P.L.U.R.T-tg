@@ -44,6 +44,11 @@ broader validation, save-schema evolution and failure recovery work.
 The cluster runs **one world per process**, with a separate minimal menu server.
 See [cluster setup and limitations](modular_babylon/CLUSTER.md). Multiplayer
 and admission are experimental and still need real multi-client playtesting.
+
+For Linux containers, see the [Docker setup](modular_babylon/CLUSTER.md#docker-on-linux-amd64).
+The root `compose.yml` uses published GHCR images; the automatic
+`compose.override.yml` always builds a separate `:local` image. See `.env.example`
+for ports, admin accounts, quotas and save retention.
 Delegated manager roles, moderation/bans, synthetic-body progression and public
 hosting hardening have not been implemented.
 
@@ -92,8 +97,9 @@ preparation writes `data/babylon/resume-state.json` and
 ## Keeping the fork mergeable
 
 All inherited GitHub Actions workflow YAML files have a `.disabled` filename
-suffix. No replacement CI/deployment automation is enabled yet. Newly merged
-upstream workflows must also be disabled until they are reviewed for this fork.
+suffix. Babylon has its own compilation/container workflow; documentation and
+map-viewer workflows are also enabled. Newly merged upstream workflows must
+remain disabled until they are reviewed for this fork.
 
 See [UPSTREAM_HOOKS.md](modular_babylon/UPSTREAM_HOOKS.md) for the six small,
 compile-guarded integration patches and the merge/validation checklist. Normal

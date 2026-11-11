@@ -65,8 +65,8 @@ class Driver:
             if source.exists():
                 shutil.copytree(source, root / name, dirs_exist_ok=True,
                                 ignore=shutil.ignore_patterns("active.dmm", "*.lk", "*.dm", "node_modules"))
-        for name in ("babylon.dmb", "babylon.rsc", "rust_g.dll", "auxlua.dll",
-                     "librust_g.so", "libauxlua.so"):
+        for name in ("babylon.dmb", "babylon.rsc", "rust_g.dll", "auxlua.dll", "dreamluau.dll",
+                     "librust_g.so", "libauxlua.so", "libdreamluau.so"):
             if (template / name).exists():
                 shutil.copy2(template / name, root / name)
         if not (root / "babylon.dmb").is_file():
@@ -138,8 +138,11 @@ class Driver:
                 kernel.CloseHandle(handle)
         try:
             os.kill(pid, 0)
-            return True
-        except ProcessLookupError:
+            # PIDs can be reused after a container restart. A live unrelated
+            # process must not keep an old world stuck in the running table.
+            command = Path(f"/proc/{pid}/cmdline").read_bytes().decode(errors="replace")
+            return "babylon.dmb" in command and run["id"] in command and run["world"] in command
+        except (ProcessLookupError, FileNotFoundError):
             return False
 
     def status(self, run):

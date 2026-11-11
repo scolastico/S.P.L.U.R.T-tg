@@ -1,0 +1,98 @@
+"""Container PID 1: run the lobby/supervisor and checkpoint children on SIGTERM."""
+import argparse
+import fcntl
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import threading
+import time
+import urllib.request
+from urllib.parse import urlencode
+
+from runtime_config import ROOT, write_settings
+from supervisor import Supervisor, serve
+from stop_worlds import stop_worlds
+
+RUNTIME = Path('/run/babylon')
+
+
+def healthcheck():
+    config = json.loads((RUNTIME / 'supervisor.json').read_text())
+    lobby = json.loads((RUNTIME / 'lobby.json').read_text())
+    body = json.dumps(dict(secret=config['lobby_secret'], actor='containerhealth',
+                           action='list', payload={})).encode()
+    request = urllib.request.Request('http://127.0.0.1:%s/api' % config['listen_port'],
+                                     data=body, headers={'Content-Type': 'application/json'})
+    with urllib.request.urlopen(request, timeout=3) as response:
+        assert json.load(response).get('ok')
+    with socket.create_connection(('127.0.0.1', lobby['port']), timeout=2):
+        pass
+
+
+def main():
+    config, lobby, limits = write_settings()
+    data = Path(config['data_directory'])
+    data.mkdir(parents=True, exist_ok=True)
+    lock = (data / '.cluster.lock').open('a')
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        raise RuntimeError('Another container is already using this data volume') from None
+    service = Supervisor(config)
+    api = threading.Thread(target=serve, args=(config, service), daemon=True)
+    api.start()
+    directory = RUNTIME / 'lobby'
+    directory.mkdir(exist_ok=True)
+    for ext in ('dmb', 'rsc'):
+        shutil.copy2(ROOT / ('babylon-lobby.' + ext), directory / ('babylon-lobby.' + ext))
+    shutil.copytree(ROOT / 'modular_babylon/lobby', directory / 'modular_babylon/lobby', dirs_exist_ok=True)
+    params = urlencode({'lobby-config': str(RUNTIME / 'lobby.json')})
+    menu = subprocess.Popen([config['dreamdaemon'], 'babylon-lobby.dmb', str(lobby['port']),
+                             '-ip', '0.0.0.0', '-trusted', '-close', '-params', params], cwd=directory)
+    stopping = threading.Event()
+    for kind in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(kind, lambda *_: stopping.set())
+    print('Babylon lobby: ' + config['lobby_address'], flush=True)
+    exit_code = 0
+    while True:
+        if menu.poll() is not None or not api.is_alive():
+            print('A cluster component exited; saving worlds before restart.', flush=True)
+            stopping.set()
+            exit_code = 1
+        if stopping.wait(.5):
+            if menu.poll() is None:
+                menu.terminate()  # Lobby has no gameplay state; close admissions first.
+                menu.wait(timeout=10)
+            def stop(actor, world):
+                return service.dispatch(actor, 'stop', {'world': world})
+            def tick(delay):
+                service.tick()
+                time.sleep(delay)
+            try:
+                stop_worlds(config, timeout=limits['shutdown_timeout_seconds'], request=stop, sleep=tick)
+            except Exception as error:
+                # Keep unsaved world processes alive. Docker may still SIGKILL
+                # after stop_grace_period; allow enough time to resolve failures.
+                print('Shutdown could not complete; worlds retained: %s. Retrying...' % error, flush=True)
+                time.sleep(5)
+                continue
+            return exit_code
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--healthcheck', action='store_true')
+    args = parser.parse_args()
+    try:
+        if args.healthcheck:
+            healthcheck()
+        else:
+            raise SystemExit(main())
+    except Exception as error:
+        print(str(error), file=sys.stderr, flush=True)
+        raise SystemExit(1)

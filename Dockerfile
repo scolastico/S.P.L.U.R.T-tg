@@ -1,85 +1,63 @@
-# base = ubuntu + full apt update
-FROM ubuntu:xenial AS base
-RUN dpkg --add-architecture i386 \
-    && apt-get update \
-    && apt-get upgrade -y \
-    && apt-get dist-upgrade -y \
-    && apt-get install -y --no-install-recommends \
-        ca-certificates
+# syntax=docker/dockerfile:1
+# BYOND's Linux runtime is x86. Build/run this image on linux/amd64.
+FROM ubuntu:24.04 AS toolchain
+ARG TARGETARCH
+ENV DEBIAN_FRONTEND=noninteractive
+RUN test "$TARGETARCH" = amd64 \
+ && dpkg --add-architecture i386 \
+ && apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl unzip make python3 nodejs \
+    libc6:i386 libstdc++6:i386 libgcc-s1:i386 zlib1g:i386 \
+    libssl3t64:i386 libcurl4t64:i386 \
+ && rm -rf /var/lib/apt/lists/*
+COPY dependencies.sh /tmp/dependencies.sh
+COPY container/install-toolchain.sh /tmp/install-toolchain.sh
+RUN bash /tmp/install-toolchain.sh
+ENV PATH="/opt/byond/bin:${PATH}" LD_LIBRARY_PATH=/opt/byond/bin
 
-# byond = base + byond installed globally
-FROM base AS byond
-WORKDIR /byond
-
-RUN apt-get install -y --no-install-recommends \
-        libcurl4 \
-        curl \
-        unzip \
-        make \
-        libstdc++6:i386
-
-COPY dependencies.sh .
-
-RUN . ./dependencies.sh \
-    && curl -H "User-Agent: tgstation/1.0 CI Script" "http://www.byond.com/download/build/${BYOND_MAJOR}/${BYOND_MAJOR}.${BYOND_MINOR}_byond_linux.zip" -o byond.zip \
-    && unzip byond.zip \
-    && cd byond \
-    && sed -i 's|install:|&\n\tmkdir -p $(MAN_DIR)/man6|' Makefile \
-    && make install \
-    && chmod 644 /usr/local/byond/man/man6/* \
-    && apt-get purge -y --auto-remove curl unzip make \
-    && cd .. \
-    && rm -rf byond byond.zip
-
-# build = byond + tgstation compiled and deployed to /deploy
-FROM byond AS build
-WORKDIR /tgstation
-
-RUN apt-get install -y --no-install-recommends \
-        curl
-
+FROM toolchain AS build
+WORKDIR /src
 COPY . .
-
-RUN env TG_BOOTSTRAP_NODE_LINUX=1 tools/build/build.sh \
-    && tools/deploy.sh /deploy
-
-# rust = base + rustc and i686 target
-FROM base AS rust
-RUN apt-get install -y --no-install-recommends \
-        curl && \
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
-    && ~/.cargo/bin/rustup target add i686-unknown-linux-gnu
-
-# rust_g = base + rust_g compiled to /rust_g
-FROM rust AS rust_g
-WORKDIR /rust_g
-
-RUN apt-get install -y --no-install-recommends \
-        pkg-config:i386 \
-        libssl-dev:i386 \
-        gcc-multilib \
-        git \
-    && git init \
-    && git remote add origin https://github.com/tgstation/rust-g
-
-COPY dependencies.sh .
-
+RUN bun install --frozen-lockfile --ignore-scripts \
+ && cd tgui && bun install --frozen-lockfile --ignore-scripts \
+ && cd packages/tgfont && bun run tgfont:build \
+ && cd /src/tgui && bun run tgui:build
 RUN . ./dependencies.sh \
-    && git fetch --depth 1 origin "${RUST_G_VERSION}" \
-    && git checkout FETCH_HEAD \
-    && env PKG_CONFIG_ALLOW_CROSS=1 ~/.cargo/bin/cargo build --release --target i686-unknown-linux-gnu
+ && curl -fSL --retry 3 "https://github.com/${CUTTER_REPO}/releases/download/${CUTTER_VERSION}/hypnagogic" -o /tmp/hypnagogic \
+ && chmod +x /tmp/hypnagogic \
+ && /tmp/hypnagogic --dont-wait --templates cutter_templates icons \
+ && /tmp/hypnagogic --dont-wait --templates cutter_templates modular_zubbers/icons \
+ && python3 tools/build_bt.py
+RUN DreamMaker -DCBT babylon.dme && DreamMaker -DCBT babylon-lobby.dme
+RUN python3 container/stage-runtime.py /src /opt/babylon
 
-# final = byond + runtime deps + rust_g + build
-FROM byond
-WORKDIR /tgstation
+# PRs and default-branch pushes build this target: both game builds, the
+# standalone lobby, upstream compatibility, Python tests and browser UX tests.
+FROM build AS check
+RUN DreamMaker -DCBT babylon-test.dme && DreamMaker -DCBT tgstation.dme \
+ && python3 -m unittest discover -s services/supervisor -v \
+ && node tools/babylon/test_lobby_loading.cjs \
+ && node container/test_cleanup.cjs
 
-RUN apt-get install -y --no-install-recommends \
-        libssl1.0.0:i386 \
-        zlib1g:i386
-
-COPY --from=build /deploy ./
-COPY --from=rust_g /rust_g/target/i686-unknown-linux-gnu/release/librust_g.so ./librust_g.so
-
-VOLUME [ "/tgstation/config", "/tgstation/data" ]
-ENTRYPOINT [ "DreamDaemon", "tgstation.dmb", "-port", "1337", "-trusted", "-close", "-verbose" ]
-EXPOSE 1337
+FROM ubuntu:24.04 AS runtime
+ENV DEBIAN_FRONTEND=noninteractive
+RUN dpkg --add-architecture i386 \
+ && apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates python3 libc6:i386 libstdc++6:i386 libgcc-s1:i386 \
+    zlib1g:i386 libssl3t64:i386 libcurl4t64:i386 \
+ && rm -rf /var/lib/apt/lists/* \
+ && useradd --uid 10001 --create-home babylon \
+ && mkdir -p /data /run/babylon && chown babylon:babylon /data /run/babylon
+COPY --from=toolchain /opt/byond /opt/byond
+COPY --from=toolchain /opt/native /opt/native
+COPY --from=build /opt/babylon /opt/babylon
+ENV PATH="/opt/byond/bin:${PATH}" LD_LIBRARY_PATH=/opt/byond/bin \
+    HOME=/home/babylon PYTHONUNBUFFERED=1
+USER babylon
+WORKDIR /opt/babylon
+VOLUME ["/data"]
+EXPOSE 1361/tcp 1400-1420/tcp
+STOPSIGNAL SIGTERM
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD ["python3", "/opt/babylon/container/entrypoint.py", "--healthcheck"]
+ENTRYPOINT ["python3", "/opt/babylon/container/entrypoint.py"]

@@ -1,7 +1,5 @@
 .dockerignore
 .editorconfig
-GPLv3.txt
-LICENSE
 README.md
 .github
 .gitignore
@@ -24,3 +22,26 @@ tgstation.dyn.rsc
 *.dll
 Dockerfile
 tools/bootstrap/.cache
+
+# Never put operator configuration, secrets, saves or host binaries in images.
+.git
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/*.dmb
+**/*.rsc
+**/*.rsc.lk
+**/*.dyn.rsc*
+**/*.dll
+**/*.so
+**/*.log
+config
+babylon-config
+babylon-supervisor-config.json
+babylon-lobby-config.json
+_maps/babylon/active.dmm
+.env
+.env.*
+!.env.example
+compose.override.yml
+tools/icon_cutter/cache
