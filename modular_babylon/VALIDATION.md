@@ -107,6 +107,22 @@ map and checkpoint files remain ignored in the disposable checkout.
   the saved `lore` state across a checkpoint, and lethal hunger/thirst on a
   human. Run the native smoke test in a disposable world before hosting.
 
+## Lore placement fixes (2026-11-11)
+
+- The hidden satchels no longer land on bare plating: the overlay rejects
+  plating and broken/burnt turfs for hidden recipes, and the cell note moved
+  from north solar control (no intact floor) to the engine room. The test
+  asserts every satchel tile is an intact floor.
+- The interlock memo, transcript and Vale's final letter ship in archive boxes
+  whose storage refuses observers; Babylon lore papers close their UI for
+  non-admin ghosts. The test asserts no loose paper in either vault chamber.
+- The continuity interlock moved from the tile in front of the inner doors to
+  the tile beside it; the displaced plastic crate moved to the vault's
+  south-east corner. The test asserts the doorway tile holds no blocker.
+- `babylon.dme -DCBT` and `babylon-test.dme -DCBT` compile with zero
+  errors/warnings; all 42 supervisor Python tests pass. Not exercised at
+  runtime: a ghost clicking a lore box or paper, and the new tile layout.
+
 ## Local persistence fixes ported to the multiplayer fork (2026-11-10)
 
 - Production `babylon.dme`, `babylon-test.dme`, and ordinary `tgstation.dme`

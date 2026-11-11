@@ -1,9 +1,11 @@
 {
-  "comment": "Babylon-only tiles spliced into the upstream wreck at preparation time: the generation interlock, the inner doors, and the continuity vault annex north of the vault.",
+  "comment": "Babylon-only tiles spliced into the upstream wreck at preparation time: the generation interlock, the continuity interlock beside the inner doors (the two upstream crates it displaces move to the south corners of the vault), the inner doors, and the continuity vault annex north of the vault.",
   "tiles": [
     {"x": 42, "y": 55, "body": "/obj/machinery/computer/vaultcontroller/babylon{\n\tdoor_id = \"babylonvault\"\n\t},\n/obj/structure/cable,\n/turf/open/floor/iron/airless,\n/area/ruin/space/bb13/engineering/sec_eng"},
     {"x": 40, "y": 58, "body": "/obj/structure/closet/crate,\n/obj/item/stack/sheet/bluespace_crystal,\n/obj/item/stack/sheet/bluespace_crystal,\n/obj/item/stack/sheet/bluespace_crystal,\n/obj/item/language_manual/dronespeak_manual,\n/turf/open/floor/iron/airless,\n/area/ruin/space/bb13/engineering/vault"},
-    {"x": 41, "y": 61, "body": "/obj/machinery/computer/babylon_interlock,\n/turf/open/floor/circuit/red/airless,\n/area/ruin/space/bb13/engineering/vault"},
+    {"x": 42, "y": 58, "body": "/obj/structure/closet/crate,\n/obj/item/stack/sheet/plastic/fifty,\n/obj/item/stack/sheet/plastic/fifty,\n/turf/open/floor/iron/airless,\n/area/ruin/space/bb13/engineering/vault"},
+    {"x": 41, "y": 61, "body": "/turf/open/floor/circuit/red/airless,\n/area/ruin/space/bb13/engineering/vault"},
+    {"x": 42, "y": 61, "body": "/obj/machinery/computer/babylon_interlock,\n/turf/open/floor/circuit/red/airless,\n/area/ruin/space/bb13/engineering/vault"},
     {"x": 41, "y": 62, "body": "/obj/machinery/door/airlock/vault/derelict{\n\tid_tag = \"babyloninner\"\n\t},\n/turf/open/floor/circuit/red/airless,\n/area/ruin/space/bb13/engineering/vault"},
     {"x": 41, "y": 63, "body": "/obj/machinery/door/airlock/vault/derelict{\n\tid_tag = \"babyloninner\"\n\t},\n/turf/open/floor/circuit/airless,\n/area/ruin/space/bb13/engineering/vault/inner"},
     {"x": 38, "y": 63, "body": "/turf/closed/indestructible/riveted,\n/area/ruin/space/bb13/engineering/vault/inner"},

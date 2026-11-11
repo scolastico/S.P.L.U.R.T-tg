@@ -1,7 +1,7 @@
 # cable-tied note on a capacitor cell
 - type: /obj/item/paper/babylon/cell
 - tier: 1 (smuggler's satchel under a floor tile)
-- placement: north solar control
+- placement: engine room, under an intact floor tile (north solar control is bare plating)
 - stamps: none
 - notes: Ilya's hand, written on the back of a wiring diagram
 ---

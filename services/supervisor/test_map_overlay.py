@@ -59,6 +59,21 @@ class LoreMap(unittest.TestCase):
         self.assertEqual(len(lore_cells), len(papers))
         for entry in papers:
             self.assertIn("/turf/open/floor/", dictionary[new_grids[entry["x"] - 1][3].splitlines()[height - entry["y"]]])
+        # Hidden stashes need an intact floor tile over them, never bare plating.
+        for entry in papers:
+            if "satchel" in entry["paper"]:
+                body = dictionary[new_grids[entry["x"] - 1][3].splitlines()[height - entry["y"]]]
+                self.assertNotIn("/turf/open/floor/plating", body)
+                self.assertNotIn("broken", body)
+                self.assertNotIn("burnt", body)
+        # Vault papers sit in containers so observers cannot read ahead.
+        for entry in papers:
+            if entry["area"].endswith("/vault") or entry["area"].endswith("/vault/inner"):
+                self.assertNotIn("/obj/item/paper/", entry["paper"])
+        # The tile in front of the inner doors stays walkable; the interlock sits beside it.
+        doorway = dictionary[new_grids[41 - 1][3].splitlines()[height - 61]]
+        self.assertFalse(any(blocker in doorway for blocker in ("/obj/structure/closet", "/obj/machinery")))
+        self.assertIn("/obj/machinery/computer/babylon_interlock", dictionary[new_grids[42 - 1][3].splitlines()[height - 61]])
         # The annex is sealed by indestructible walls on every side.
         walls = {(tile["x"], tile["y"]) for tile in annex if "indestructible/riveted" in tile["body"]}
         self.assertTrue(all((x, 68) in walls for x in range(38, 45)))

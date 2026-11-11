@@ -64,6 +64,9 @@ def prepare_fresh_map(template, destination):
                     continue
                 if any(blocker in body for blocker in BLOCKING):
                     continue
+                if recipe.get("hidden") and ("/turf/open/floor/plating" in body or "broken" in body or "burnt" in body):
+                    # Under-floor stashes are only hidden while an intact tile covers them.
+                    continue
                 priority = 0 if "/obj/structure/table" in body or "/obj/structure/rack" in body else 1
                 if recipe.get("hidden"):
                     # Under-floor stashes want a bare floor, not a table.

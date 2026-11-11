@@ -28,6 +28,13 @@
 	apply_lore_stamps()
 	return ..()
 
+// Dead players wait as observers. Upstream lets ghosts read any paper from
+// anywhere; Babylon's story is earned by the living, so ghosts get nothing.
+/obj/item/paper/babylon/ui_status(mob/user, datum/ui_state/state)
+	if(isobserver(user) && !isAdminGhostAI(user))
+		return UI_CLOSE
+	return ..()
+
 /obj/item/paper/babylon/proc/apply_lore_stamps()
 	if(stamps_applied || !length(lore_stamps))
 		return
@@ -420,7 +427,8 @@ None of these are yours unless you want them. The rooms are.
 
 // ---------------------------------------------------------------------------
 // Containers. The map overlay places one object per recipe; these wrap a
-// paper so it can be hidden under a floor tile or shut inside a crate.
+// paper so it can be hidden under a floor tile, shut inside a crate or taped
+// into a box. Ghosts cannot look inside any of them.
 // ---------------------------------------------------------------------------
 
 /obj/item/storage/backpack/satchel/flat/babylon
@@ -456,3 +464,30 @@ None of these are yours unless you want them. The rooms are.
 
 /obj/structure/closet/crate/babylon/housing
 	paper_type = /obj/item/paper/babylon/housing
+
+// Upstream storage shows its contents to observers on click. Lore boxes refuse.
+/datum/storage/box/babylon
+
+/datum/storage/box/babylon/open_storage(mob/living/to_show, can_reach_target = parent)
+	if(isobserver(to_show))
+		return FALSE
+	return ..()
+
+/obj/item/storage/box/babylon
+	name = "archive box"
+	desc = "A plain archive box with a Mnemosyne project label. The lid is taped shut."
+	storage_type = /datum/storage/box/babylon
+	var/paper_type
+
+/obj/item/storage/box/babylon/PopulateContents()
+	if(paper_type)
+		new paper_type(src)
+
+/obj/item/storage/box/babylon/interlock
+	paper_type = /obj/item/paper/babylon/interlock
+
+/obj/item/storage/box/babylon/transcript
+	paper_type = /obj/item/paper/babylon/transcript
+
+/obj/item/storage/box/babylon/vale_final
+	paper_type = /obj/item/paper/babylon/vale_final

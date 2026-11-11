@@ -118,14 +118,14 @@ stays as the evacuation voice.
 | 5 | 05-fault-review.md | pressure | 0 open | atmospherics |
 | 6 | 06-last-light.md | last_light | 0 open | chapel |
 | 7 | 07-notebook-page.md | research | 1 under floor | research, smuggler's satchel |
-| 8 | 08-cell-note.md | cell | 1 under floor | north solar control, smuggler's satchel |
+| 8 | 08-cell-note.md | cell | 1 under floor | engine room (solar control has no intact floor), smuggler's satchel |
 | 9 | 09-to-whoever.md | letter | 1 under floor | service / dorm side, smuggler's satchel |
 | 10 | 10-seed-ledger.md | ledger | 2 vault chamber 1 | inside a crate |
 | 11 | 11-housing-roadmap.md | housing | 2 vault chamber 1 | inside a crate |
-| 12 | 12-interlock-memo.md | interlock | 2 vault chamber 1 | on the floor by the inner door |
+| 12 | 12-interlock-memo.md | interlock | 2 vault chamber 1 | archive box by the inner door |
 | 13 | 13-core-log.md | core_log | 3 watchdog chamber | **printed by the server from world state** |
-| 14 | 14-transfer-transcript.md | transcript | 3 watchdog chamber | printed by the server, hangs beside the core log |
-| 15 | 15-vale-final.md | vale_final | 3 watchdog chamber | sealed envelope on the server |
+| 14 | 14-transfer-transcript.md | transcript | 3 watchdog chamber | server printout, archive box on the left table |
+| 15 | 15-vale-final.md | vale_final | 3 watchdog chamber | archive box on the right table |
 
 Tier 0 establishes the evacuation, the two who stayed, and that the drones were
 meant to remain. Tier 1 seeds the shard idea. Tier 2 states the seed rules,

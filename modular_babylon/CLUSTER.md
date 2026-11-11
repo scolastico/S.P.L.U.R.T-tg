@@ -137,7 +137,9 @@ overlays with `map_overlay.py`: `_maps/babylon/vault_annex.json` splices the
 generation interlock, the inner vault doors and the sealed continuity annex
 north of the vault into the map, and `_maps/babylon/lore.json` places fourteen
 lore objects (open papers, flat satchels hidden under floor tiles, sealed
-crates in the vault, and papers in the annex). Existing saved builds are not
+crates in the vault, and archive boxes in the annex). Hidden satchels only go
+under intact floor tiles, never bare plating, and ghosts can neither read a lore
+paper nor look inside a lore box. Existing saved builds are not
 overwritten or reseeded. Draft text and the canon live in `modular_babylon/lore/`.
 Their types and locations persist through saves; there is no separate
 repeatable paper spawner.
