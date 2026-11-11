@@ -26,6 +26,11 @@ jobs:
       - uses: docker/setup-buildx-action@v3
         with:
           driver-opts: network=host
+          buildkitd-config-inline: |
+            [dns]
+              nameservers = ["1.1.1.1", "8.8.8.8"]
+      - name: Check runner dependency resolver
+        run: getent ahostsv4 archive.ubuntu.com && getent ahostsv4 github.com
       - name: Compile game, lobby and test builds; run regression tests
         uses: docker/build-push-action@v6
         with:
@@ -52,6 +57,11 @@ jobs:
       - uses: docker/setup-buildx-action@v3
         with:
           driver-opts: network=host
+          buildkitd-config-inline: |
+            [dns]
+              nameservers = ["1.1.1.1", "8.8.8.8"]
+      - name: Check runner dependency resolver
+        run: getent ahostsv4 archive.ubuntu.com && getent ahostsv4 github.com
       - name: Choose image tags
         id: image
         env:
