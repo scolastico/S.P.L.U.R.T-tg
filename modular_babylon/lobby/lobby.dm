@@ -115,6 +115,7 @@ var/global/list/lobby_config
 			if(card["role"] == "owner" || card["role"] == "admin")
 				if(card["state"] == "stopped")
 					rendered += "<a class='button' href='?src=\ref[src];action=edit;world=[id]'>Edit settings</a><a class='button' href='?src=\ref[src];action=member;world=[id]'>Members</a><a class='button' href='?src=\ref[src];action=rollback;world=[id]'>Saved checkpoints / rollback</a>"
+					rendered += "<a class='button danger' href='?src=\ref[src];action=delete;world=[id]'>Delete world</a>"
 				else
 					rendered += "<a class='button danger' href='?src=\ref[src];action=stop;world=[id]'>Save and force stop</a>"
 			if(card["error"])
@@ -229,6 +230,14 @@ var/global/list/lobby_config
 		payload["confirm_delete_newer"] = 1
 		var/list/result = api("rollback", payload)
 		notice = result["error"] || "Checkpoint restored. Newer checkpoints deleted: [result["deleted"]]. Join to continue from this point."
+	else if(action == "delete")
+		if(card["role"] != "owner" && card["role"] != "admin")
+			return
+		if(alert(src, "Permanently delete [card["name"]]? This deletes the entire world and ALL saved checkpoints for everyone. This cannot be undone.", "Delete world", "Cancel", "Delete permanently") != "Delete permanently")
+			return
+		payload["confirm_delete"] = 1
+		var/list/result = api("delete", payload)
+		notice = result["error"] || "World permanently deleted."
 	else if(action == "stop")
 		if(alert(src, "Save and stop this world now? All remaining players will be returned to the lobby.", "Force stop", "Cancel", "Stop world") != "Stop world")
 			return

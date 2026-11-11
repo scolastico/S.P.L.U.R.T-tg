@@ -194,6 +194,14 @@ reconciliation, schema migrations, moderation/bans, delegated manager roles,
 and a controlled update policy for worlds saved by older game builds. Worlds
 are isolated processes/directories, not an OS security sandbox.
 
+## Deleting worlds
+
+Owners and server admins can permanently delete a stopped world using
+**Delete world** on its lobby card. The confirmation covers every checkpoint.
+Running worlds must be saved/stopped first. Deletion revokes memberships,
+tickets and sessions, releases the owner's world quota, and removes that
+world's data directory. Filesystem failures retain a cleanup journal for retry.
+
 ## Persistence repairs carried over from the local prototype
 
 Checkpoints retain air-alarm threshold datums and selected mode, cycling-pump

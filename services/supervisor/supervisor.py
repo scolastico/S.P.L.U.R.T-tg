@@ -154,6 +154,7 @@ class Supervisor:
         self.config = config
         self.clock = clock
         self.lock = threading.RLock()
+        self.deletion_lock = threading.Lock()
         self.driver = driver or Driver(config)
         self.admins = {ckey(k) for k in config.get("admins", [])}
         Path(config["data_directory"]).mkdir(parents=True, exist_ok=True)
@@ -201,23 +202,46 @@ class Supervisor:
                                           (self.clock() - days * 86400,)).fetchall()
                 for row in expired:
                     world = row[0]
-                    # Commit deletion intent and revoke access before touching the files.
-                    self.db.execute("INSERT OR IGNORE INTO world_deletions VALUES(?)", (world,))
-                    for table in ("members", "tickets", "sessions"):
-                        self.db.execute(f"DELETE FROM {table} WHERE world=?", (world,))
-                    self.db.execute("DELETE FROM worlds WHERE id=?", (world,))
-                    self.audit("supervisor", "expire_unused_world", world)
-                    self.checkpoints.maintained.pop(world, None)
+                    self.queue_world_deletion(world, "supervisor", "expire_unused_world")
             pending = [row[0] for row in self.db.execute("SELECT world FROM world_deletions")]
         # Deleting runtime assets can take time. Do not hold the admission/database lock.
         for world in pending:
+            self.finish_world_deletion(world)
+
+    def queue_world_deletion(self, world, actor, action):
+        # Called inside the admission lock/transaction: revoke access and commit
+        # the retry journal before any filesystem operation can begin.
+        self.db.execute("INSERT OR IGNORE INTO world_deletions VALUES(?)", (world,))
+        for table in ("members", "tickets", "sessions"):
+            self.db.execute(f"DELETE FROM {table} WHERE world=?", (world,))
+        self.db.execute("DELETE FROM worlds WHERE id=?", (world,))
+        self.audit(actor, action, world)
+        self.checkpoints.maintained.pop(world, None)
+
+    def finish_world_deletion(self, world):
+        # Expiry and manual deletion may run concurrently. Serialize file
+        # cleanup without holding the database/admission lock.
+        with self.deletion_lock:
             try:
                 delete_world_data(self.config["data_directory"], world)
             except (OSError, ValueError):
-                print(f"World expiry cleanup pending for {world}; will retry", flush=True)
-                continue
+                print(f"World cleanup pending for {world}; will retry", flush=True)
+                return False
             with self.lock, self.db:
                 self.db.execute("DELETE FROM world_deletions WHERE world=?", (world,))
+        return True
+
+    def delete_world(self, actor, data):
+        with self.lock, self.db:
+            world = self.world(data.get("world"))
+            if self.role(actor, world) not in ("owner", "admin"):
+                raise Denied("Only the owner or a server administrator can delete a world")
+            if data.get("confirm_delete") not in (True, 1):
+                raise Denied("Confirm permanent deletion of this world and all its checkpoints")
+            if self.row("SELECT * FROM runs WHERE world=?", (world["id"],)):
+                raise Denied("Stop the world before deleting it")
+            self.queue_world_deletion(world["id"], actor, "delete_world")
+        return {"ok": True, "cleanup_pending": not self.finish_world_deletion(world["id"])}
 
     def maintain_checkpoints(self, world, expected=None):
         try:
@@ -272,6 +296,8 @@ class Supervisor:
         actor = ckey(actor)
         if not actor or actor.startswith("guest"):
             raise Denied("Sign in with a BYOND account")
+        if action == "delete":
+            return self.delete_world(actor, data)
         with self.lock, self.db:
             if action == "list":
                 worlds = []

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from supervisor import Supervisor, load_config
+from supervisor import Denied, Supervisor, load_config
 from test_supervisor import FakeDriver
 from world_storage import delete_world_data
 
@@ -29,6 +29,57 @@ class Expiry(unittest.TestCase):
     def tearDown(self):
         self.s.db.close()
         self.temp.cleanup()
+
+    def test_owner_delete_requires_confirmation_and_removes_all_world_data(self):
+        self.s.dispatch("owner", "member", {"world": self.world, "member": "friend"})
+        saved = self.path / "data/babylon/saves/checkpoint"
+        saved.mkdir(parents=True)
+        (saved / "state.json").write_text("saved progress")
+        other = self.s.dispatch("owner", "create", {"name": "Keep this"})["id"]
+        other_path = Path(self.temp.name) / "worlds" / other
+        other_path.mkdir()
+        (other_path / "keep.txt").write_text("untouched")
+        with self.assertRaises(Denied):
+            self.s.dispatch("owner", "delete", {"world": self.world})
+        self.assertTrue(self.path.exists())
+        result = self.s.dispatch("owner", "delete", {"world": self.world, "confirm_delete": 1})
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["cleanup_pending"])
+        self.assertFalse(self.path.exists())
+        self.assertEqual((other_path / "keep.txt").read_text(), "untouched")
+        self.assertIsNone(self.s.row("SELECT * FROM worlds WHERE id=?", (self.world,)))
+        self.assertEqual(self.s.row("SELECT count(*) n FROM members WHERE world=?", (self.world,))["n"], 0)
+        self.assertEqual(self.s.row("SELECT count(*) n FROM audit WHERE action='delete_world'")["n"], 1)
+
+    def test_members_and_guests_cannot_delete_but_admin_can(self):
+        self.s.dispatch("owner", "member", {"world": self.world, "member": "friend"})
+        for actor in ("friend", "outsider"):
+            with self.assertRaises(Denied):
+                self.s.dispatch(actor, "delete", {"world": self.world, "confirm_delete": 1})
+        self.s.admins.add("admin")
+        self.assertTrue(self.s.dispatch("admin", "delete", {"world": self.world, "confirm_delete": 1})["ok"])
+
+    def test_delete_rejects_every_live_run_state(self):
+        self.s.dispatch("owner", "join", {"world": self.world})
+        for state in ("starting", "running", "stopping", "error"):
+            with self.s.db:
+                self.s.db.execute("UPDATE runs SET state=? WHERE world=?", (state, self.world))
+            with self.assertRaisesRegex(Denied, "Stop the world"):
+                self.s.dispatch("owner", "delete", {"world": self.world, "confirm_delete": 1})
+        self.assertTrue(self.path.exists())
+
+    def test_manual_deletion_retries_filesystem_failure_and_releases_quota(self):
+        self.config["max_worlds_per_player"] = 1
+        with patch("supervisor.delete_world_data", side_effect=OSError("locked file")):
+            result = self.s.dispatch("owner", "delete", {"world": self.world, "confirm_delete": 1})
+        self.assertTrue(result["cleanup_pending"])
+        self.assertTrue(self.path.exists())
+        self.assertIsNotNone(self.s.row("SELECT * FROM world_deletions WHERE world=?", (self.world,)))
+        self.assertEqual(self.s.dispatch("owner", "list", {})["worlds"], [])
+        self.s.dispatch("owner", "create", {"name": "Replacement"})
+        self.s.cleanup_unused_worlds()
+        self.assertFalse(self.path.exists())
+        self.assertIsNone(self.s.row("SELECT * FROM world_deletions WHERE world=?", (self.world,)))
 
     def test_default_sixty_days_removes_stopped_world_and_members(self):
         self.s.dispatch("owner", "member", {"world": self.world, "member": "friend"})
