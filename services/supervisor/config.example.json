@@ -19,6 +19,7 @@
   "kept_save_points_per_world": 4,
   "delete_unused_worlds_after_days": 60,
   "empty_grace_seconds": 120,
+  "afk_timeout_seconds": 900,
   "startup_timeout_seconds": 300,
   "ticket_lifetime_seconds": 60
 }

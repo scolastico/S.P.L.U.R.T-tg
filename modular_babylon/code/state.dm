@@ -39,6 +39,7 @@ GLOBAL_DATUM_INIT(babylon_save, /datum/babylon_save, new)
 	// Owner uses this datum for legacy saves; other players have independent sessions.
 	var/list/player_sessions = list()
 	var/draining = FALSE
+	var/afk_timeout = 15 MINUTES
 	var/mob/living/basic/drone/babylon/builder
 	var/list/restored_atoms = list()
 	var/list/resume_data

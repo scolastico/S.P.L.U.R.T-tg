@@ -101,7 +101,8 @@ class Driver:
                             "babylon-owner": world["owner"], "babylon-world": world["id"],
                             "babylon-run": run["id"], "babylon-secret": run["secret"],
                             "babylon-api": f"http://127.0.0.1:{self.config['listen_port']}",
-                            "babylon-lobby": self.config["lobby_address"]})
+                            "babylon-lobby": self.config["lobby_address"],
+                            "babylon-afk-timeout": self.config.get("afk_timeout_seconds", 900)})
         log = open(root / "daemon.log", "ab", buffering=0)
         try:
             process = subprocess.Popen([self.config["dreamdaemon"], "babylon.dmb", str(run["port"]),
@@ -546,6 +547,9 @@ def load_config(path):
     config = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     config.setdefault("kept_save_points_per_world", 4)
     config.setdefault("delete_unused_worlds_after_days", 60)
+    config.setdefault("afk_timeout_seconds", 900)
+    if type(config["afk_timeout_seconds"]) is not int or config["afk_timeout_seconds"] < 0:
+        raise ValueError("afk_timeout_seconds must be a nonnegative integer (0 disables AFK kicks)")
     if type(config["delete_unused_worlds_after_days"]) is not int or config["delete_unused_worlds_after_days"] < 0:
         raise ValueError("delete_unused_worlds_after_days must be a nonnegative integer (0 disables expiry)")
     if config.get("listen_host") != "127.0.0.1":

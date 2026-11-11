@@ -99,6 +99,9 @@ def main():
         world = api("create", dict(name="Native smoke", visibility="private"))["id"]
         run = wait_ready(world)
         assert topic(run["port"], run["secret"], "status")["players"] == []
+        afk = call(run, "session", "test_afk_policy")
+        afk = {entry["entry"]: entry["value"] for entry in afk["entries"]}
+        assert afk and all(afk.values()), afk
         experience = call(run, "session", "test_builder_experience")
         experience = {entry["entry"]: entry["value"] for entry in experience["entries"]}
         for key in ("replacement_items", "replacement_storage", "replacement_head", "station_confinement", "physical_cafe_turfs"):
@@ -158,6 +161,7 @@ def main():
         for item in inventory:
             assert objects[item["id"]].get("parent") == friend_id
         report = dict(passed=True, real_child_start_stop=True, http_ticket_redemption=True,
+                      afk_policy=True,
                       replay_rejected=True, admin_private_bypass=True, multiplayer_roster=True,
                       second_inventory=True, second_respawn=True, enclosed_drone=True,
                       empty_respawn=True, ghost_hud_trimmed=True, physical_cafe_turfs=0,

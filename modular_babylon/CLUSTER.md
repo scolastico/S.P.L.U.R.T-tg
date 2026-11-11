@@ -263,6 +263,22 @@ remain because SS13 systems depend on them. This does not yet remove all
 unused upstream types or make a one-z DreamDaemon. The lobby itself contains
 none of those systems.
 
+## AFK disconnection
+
+Worlds disconnect inactive players after 900 seconds (15 minutes) by default.
+Set `afk_timeout_seconds` in the supervisor JSON, or
+`BABYLON_AFK_TIMEOUT_SECONDS` in Docker/Compose; `0` disables it. Changes apply
+when a world next starts. Standalone worlds accept the world parameter
+`babylon-afk-timeout=<seconds>` with the same default.
+
+Players receive one chat warning up to 60 seconds before disconnection. Moving
+or interacting resets BYOND's inactivity counter and cancels the countdown.
+The policy includes ghosts, owners and admins, and replaces SPLURT's separate
+`KICK_INACTIVE` setting in Babylon worlds. Bodies and equipment are preserved;
+players reconnect through the lobby. Once everyone disconnects, the normal
+empty-world grace period triggers saving and shutdown. Lobby menu connections
+are not subject to this world timeout.
+
 ## Validation
 
 ```powershell

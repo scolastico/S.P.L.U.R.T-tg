@@ -19,6 +19,7 @@ class ContainerConfiguration(unittest.TestCase):
         self.assertNotEqual(config['lobby_secret'], runtime.settings({})[0]['lobby_secret'])
         self.assertEqual(config['kept_save_points_per_world'], 4)
         self.assertEqual(config['delete_unused_worlds_after_days'], 60)
+        self.assertEqual(config['afk_timeout_seconds'], 900)
 
     def test_environment_ports_quotas_and_admin_csv(self):
         config, lobby, limits, name = runtime.settings(dict(
@@ -26,6 +27,7 @@ class ContainerConfiguration(unittest.TestCase):
             BABYLON_WORLD_PORT_FIRST='2500', BABYLON_WORLD_PORT_LAST='2501',
             BABYLON_MAX_RUNNING_WORLDS='2', BABYLON_MAX_PLAYERS_PER_WORLD='8',
             BABYLON_ADMINS='Alice Smith, BOB, alice.smith, ,',
+            BABYLON_AFK_TIMEOUT_SECONDS='300',
             BABYLON_DELETE_UNUSED_WORLDS_AFTER_DAYS='0', BABYLON_KEPT_SAVE_POINTS_PER_WORLD='9'))
         self.assertEqual(config['admins'], ['alicesmith', 'bob'])
         self.assertEqual(config['lobby_address'], 'byond://station.example.org:2400')
@@ -33,6 +35,8 @@ class ContainerConfiguration(unittest.TestCase):
         self.assertEqual(config['max_players_per_world'], 8)
         self.assertEqual(config['delete_unused_worlds_after_days'], 0)
         self.assertEqual(config['kept_save_points_per_world'], 9)
+        self.assertEqual(config['afk_timeout_seconds'], 300)
+        self.assertEqual(runtime.settings(dict(BABYLON_AFK_TIMEOUT_SECONDS='0'))[0]['afk_timeout_seconds'], 0)
 
     def test_invalid_ports_and_unsafe_environment_are_rejected(self):
         for values in (
@@ -42,6 +46,7 @@ class ContainerConfiguration(unittest.TestCase):
             dict(BABYLON_MAX_PLAYERS_PER_WORLD='0'), dict(BABYLON_EMPTY_GRACE_SECONDS='1.5'),
             dict(BABYLON_PUBLIC_HOST='https://station.example.org'),
             dict(BABYLON_SERVER_NAME='Name\nSQL_ENABLED'), dict(BABYLON_ADMINS='Guest123'),
+            dict(BABYLON_AFK_TIMEOUT_SECONDS='-1'), dict(BABYLON_AFK_TIMEOUT_SECONDS='1.5'),
         ):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 runtime.settings(values)

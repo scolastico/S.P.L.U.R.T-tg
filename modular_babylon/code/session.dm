@@ -57,6 +57,8 @@
 		if(!draining)
 			for(var/client/student in GLOB.clients)
 				ensure_player(student.ckey)
+				if(!busy)
+					student.babylon_check_afk(afk_timeout)
 			for(var/player_key in player_sessions)
 				var/datum/babylon_save/player = player_sessions[player_key]
 				tick_player(player, GLOB.directory[player_key])
@@ -102,6 +104,15 @@ SUBSYSTEM_DEF(babylon_builder)
 		session.boot_error = "Set babylon-owner=<BYOND ckey> in world parameters. A world owner is required."
 		return SS_INIT_FAILURE
 	session.player_sessions[session.owner_ckey] = session
+	var/raw_afk_timeout = world.params["babylon-afk-timeout"]
+	if(!isnull(raw_afk_timeout))
+		var/seconds = text2num(raw_afk_timeout)
+		if(isnull(seconds) || seconds < 0 || seconds != round(seconds))
+			session.boot_error = "babylon-afk-timeout must be a nonnegative integer in seconds (0 disables AFK kicks)."
+			return SS_INIT_FAILURE
+		session.afk_timeout = seconds SECONDS
+	// Babylon owns this policy, including ghosts and administrators.
+	CONFIG_SET(flag/kick_inactive, FALSE)
 	session.station_z = SSmapping.levels_by_trait(ZTRAIT_STATION)[1]
 	try
 		session.restore_world()

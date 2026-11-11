@@ -10,6 +10,7 @@
 #include "modular_babylon/code/state.dm"
 #include "modular_babylon/code/persistence.dm"
 #include "modular_babylon/code/session.dm"
+#include "modular_babylon/code/afk.dm"
 #include "modular_babylon/code/drone_recovery.dm"
 #include "modular_babylon/code/control.dm"
 #include "modular_babylon/code/admission.dm"

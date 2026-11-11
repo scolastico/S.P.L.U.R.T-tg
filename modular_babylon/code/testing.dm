@@ -5,6 +5,24 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 /datum/babylon_save/proc/test_supervisor_export(encoded_query)
 	return babylon_supervisor_request(json_decode(encoded_query))
 
+/datum/babylon_save/proc/test_afk_policy()
+	var/datum/babylon_afk/policy = new
+	var/list/result = list()
+	result["active"] = isnull(policy.update(839 SECONDS, 15 MINUTES))
+	result["warning_boundary"] = policy.update(840 SECONDS, 15 MINUTES) == "warn"
+	result["warning_once"] = isnull(policy.update(850 SECONDS, 15 MINUTES))
+	result["activity_cancels_warning"] = isnull(policy.update(1 SECONDS, 15 MINUTES)) && !policy.warned
+	result["warning_rearmed"] = policy.update(840 SECONDS, 15 MINUTES) == "warn"
+	result["kick_boundary"] = policy.update(15 MINUTES, 15 MINUTES) == "kick"
+	result["kick_once"] = isnull(policy.update(901 SECONDS, 15 MINUTES))
+	result["activity_cancels_kick"] = isnull(policy.update(0, 15 MINUTES)) && !policy.kick_pending
+	result["kick_rearmed"] = policy.update(15 MINUTES, 15 MINUTES) == "kick"
+	result["disabled"] = isnull(policy.update(100 MINUTES, 0)) && !policy.kick_pending && !policy.warned
+	result["short_timeout_warning"] = policy.update(1 SECONDS, 10 SECONDS) == "warn"
+	result["short_timeout_kick"] = policy.update(10 SECONDS, 10 SECONDS) == "kick"
+	qdel(policy)
+	return result
+
 /datum/babylon_save/proc/test_builder_experience()
 	var/mob/living/basic/drone/babylon/replacement/empty = new(respawn_turf)
 	var/item_count = 0

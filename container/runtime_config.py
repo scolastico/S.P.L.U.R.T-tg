@@ -19,6 +19,7 @@ DEFAULTS = {
     'delete_unused_worlds_after_days': 60, 'empty_grace_seconds': 120,
     'startup_timeout_seconds': 300, 'ticket_lifetime_seconds': 60,
     'shutdown_timeout_seconds': 180,
+    'afk_timeout_seconds': 900,
 }
 
 
@@ -30,7 +31,7 @@ def settings(env=None, runtime=Path('/run/babylon'), template=ROOT):
         if not re.fullmatch(r'\d+', raw):
             raise ValueError('BABYLON_' + name.upper() + ' must be an integer')
         number = int(raw)
-        minimum = 0 if name == 'delete_unused_worlds_after_days' else 1
+        minimum = 0 if name in ('delete_unused_worlds_after_days', 'afk_timeout_seconds') else 1
         if number < minimum or ('port' in name and number > 65535):
             raise ValueError('Invalid BABYLON_' + name.upper())
         values[name] = number
@@ -62,7 +63,7 @@ def settings(env=None, runtime=Path('/run/babylon'), template=ROOT):
         'max_running_worlds', 'max_players_per_world', 'max_worlds_per_player',
         'max_running_worlds_per_player', 'kept_save_points_per_world',
         'delete_unused_worlds_after_days', 'empty_grace_seconds',
-        'startup_timeout_seconds', 'ticket_lifetime_seconds')}
+        'startup_timeout_seconds', 'ticket_lifetime_seconds', 'afk_timeout_seconds')}
     config.update(listen_host='127.0.0.1', listen_port=values['api_port'], public_host=host,
                   bind_address='0.0.0.0', lobby_address=address, lobby_secret=secret, admins=admins,
                   data_directory=env.get('BABYLON_DATA_DIRECTORY', '/data'),
