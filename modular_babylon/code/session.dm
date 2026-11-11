@@ -56,7 +56,10 @@
 	while(TRUE)
 		if(!draining)
 			for(var/client/student in GLOB.clients)
-				ensure_player(student.ckey)
+				if(student.babylon_showcase_visitor)
+					ensure_showcase_visitor(student)
+				else
+					ensure_player(student.ckey)
 				if(!busy)
 					student.babylon_check_afk(afk_timeout)
 			for(var/player_key in player_sessions)

@@ -44,6 +44,12 @@ GAME_VERB_HIDDEN(/client, drop_item, "drop item")
  *
  */
 /client/Move(new_loc, direct)
+#ifdef BABYLON_BUILDER // BABYLON13: never move a previous playable body as a visitor.
+	if(babylon_showcase_visitor)
+		GLOB.babylon_save.ensure_showcase_visitor(src)
+		if(!istype(mob, /mob/dead/babylon_visitor))
+			return FALSE
+#endif
 	if(world.time < move_delay) //do not move anything ahead of this check please
 		return FALSE
 	next_move_dir_add = NONE

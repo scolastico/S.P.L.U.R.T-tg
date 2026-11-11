@@ -119,7 +119,10 @@ var/global/list/lobby_config
 			var/world_name = html_encode(card["name"])
 			rendered += "<section class='card'><div class='card-head'><h2>[world_name]</h2><span class='badge [html_encode(card["state"])]'>[states[card["state"]] || "Unknown"]</span></div><p>[html_encode(card["description"] || "A Babylon station waiting to be rebuilt.")]</p><div class='meta'>Owner: [html_encode(card["owner"])] &nbsp; | &nbsp; Access: [html_encode(card["visibility"])] &nbsp; | &nbsp; [card["players"]]/[card["max_players"]] players online<br>Your role: <b>[html_encode(card["role"])]</b> &nbsp; | &nbsp; Last active: [html_encode(card["last_active"] || "Unknown")]<br>Last save: [html_encode(card["last_save"] || "None yet")]</div><div class='actions'>"
 			if(card["role"] != "guest" || card["state"] != "stopped")
-				rendered += "<a class='button primary' data-world='[world_name]' data-stage='Preparing your connection...' onclick='return beginAction(this)' href='?src=\ref[src];action=join;world=[id]'>[card["state"] == "stopped" ? "Start and join" : "Join world"]</a>"
+				var/join_label = card["state"] == "stopped" ? "Start and join" : (card["visibility"] == "showcase" && card["role"] == "guest" ? "Visit showcase" : "Join world")
+				rendered += "<a class='button primary' data-world='[world_name]' data-stage='Preparing your connection...' onclick='return beginAction(this)' href='?src=\ref[src];action=join;world=[id]'>[join_label]</a>"
+				if(card["visibility"] == "showcase" && card["role"] == "guest")
+					rendered += "<small>Visible ghost visit: explore and chat only. Membership is required to build.</small>"
 			else
 				rendered += "<small>An owner, member or admin must start this world.</small>"
 			if(card["role"] == "owner" || card["role"] == "admin")
@@ -187,7 +190,7 @@ var/global/list/lobby_config
 		var/description = input(src, "Description", "Babylon", card ? card["description"] : "") as null|message
 		if(isnull(description))
 			return
-		var/visibility = input(src, "Who can join? Private worlds require membership. Password worlds are listed and locked.", "Visibility", card ? card["visibility"] : "private") in list("private", "password", "public")
+		var/visibility = input(src, "Who can join? Private: members only. Showcase: members play, guests visit as visible ghosts who can only explore and chat. Password: guests need the password. Public: guests can play.", "Visibility", card ? card["visibility"] : "private") in list("private", "showcase", "password", "public")
 		if(!visibility)
 			return
 		payload["name"] = name

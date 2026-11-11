@@ -23,7 +23,13 @@
 	if(!istext(ticket) || length(ticket) > 128)
 		return FALSE
 	var/list/result = babylon_supervisor_request(list("action" = "redeem", "ticket" = ticket, "actor" = ckey))
-	return result?["ok"] && result["world"] == world.params["babylon-world"] && result["run"] == world.params["babylon-run"]
+	if(!result?["ok"] || result["world"] != world.params["babylon-world"] || result["run"] != world.params["babylon-run"] || !(result["mode"] in list("player", "showcase")))
+		return FALSE
+	// Only the authenticated supervisor response can grant a play mode.
+	babylon_showcase_visitor = result["mode"] == "showcase"
+	if(babylon_showcase_visitor)
+		babylon_restrict_visitor_verbs()
+	return TRUE
 
 /client/verb/babylon_return_lobby()
 	set name = "Return to Babylon lobby"
@@ -60,6 +66,9 @@
 /datum/babylon_save/proc/ensure_player(player_key)
 	player_key = ckey(player_key)
 	if(!player_key)
+		return null
+	var/client/student = GLOB.directory[player_key]
+	if(student?.babylon_showcase_visitor)
 		return null
 	var/datum/babylon_save/player = player_sessions[player_key]
 	if(player)
@@ -102,6 +111,8 @@
 	drone.update_worn_head()
 
 /datum/babylon_save/proc/tick_player(datum/babylon_save/player, client/student)
+	if(student?.babylon_showcase_visitor)
+		return
 	player.station_z = station_z
 	player.ready = ready
 	if(!player.respawn_turf)

@@ -73,6 +73,10 @@ GAME_VERB_NATIVE_INSTANT(/client, keyDown, "keyDown", null, _key as text, mousep
 	for(var/kb_name in prefs.key_bindings_by_key[full_key])
 		keycount++
 		var/datum/keybinding/kb = GLOB.keybindings_by_name[kb_name]
+#ifdef BABYLON_BUILDER // BABYLON13: only movement and chat shortcuts for visitors.
+		if(babylon_showcase_visitor && !babylon_showcase_allowed_keybinding(kb))
+			continue
+#endif
 		if(kb.can_use(src) && kb.down(src, click_data[1], click_data[2], click_data[3]) && keycount >= MAX_COMMANDS_PER_KEY)
 			break
 
@@ -105,6 +109,10 @@ GAME_VERB_NATIVE_INSTANT(/client, keyUp, "keyUp", null, _key as text, mousepos_x
 	// can hold different keys and releasing any should be handled by the key binding specifically
 	for (var/kb_name in prefs.key_bindings_by_key[_key])
 		var/datum/keybinding/kb = GLOB.keybindings_by_name[kb_name]
+#ifdef BABYLON_BUILDER // BABYLON13: apply the visitor allowlist on key release too.
+		if(babylon_showcase_visitor && !babylon_showcase_allowed_keybinding(kb))
+			continue
+#endif
 		if(kb.can_use(src) && kb.up(src, click_data?[1]))
 			break
 	holder?.key_up(_key, src)

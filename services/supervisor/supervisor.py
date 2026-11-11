@@ -282,7 +282,7 @@ class Supervisor:
         visibility = data.get("visibility", current.get("visibility", "private"))
         if not 1 <= len(name) <= 60 or len(description) > 500:
             raise Denied("Use a name of 1–60 characters and a description up to 500 characters")
-        if visibility not in ("public", "private", "password"):
+        if visibility not in ("public", "private", "showcase", "password"):
             raise Denied("Invalid visibility")
         maximum = int(data.get("max_players", current.get("max_players", self.config["max_players_per_world"])))
         if not 1 <= maximum <= self.config["max_players_per_world"]:
@@ -376,7 +376,7 @@ class Supervisor:
                 return {"ok": True}
             if action != "join":
                 raise Denied("Unknown action")
-            authorized = role != "guest" or world["visibility"] == "public"
+            authorized = role != "guest" or world["visibility"] in ("public", "showcase")
             if not authorized and world["visibility"] == "password":
                 authorized = password_matches(str(data.get("password", "")), world["password"])
             if not authorized:
@@ -458,7 +458,7 @@ class Supervisor:
                 raise Denied("Admission expired or invalid; reconnect through the lobby")
             world = self.world(run["world"])
             role = self.role(ckey(actor), world)
-            if role == "guest" and world["visibility"] != "public" and not (world["visibility"] == "password" and ticket["password_hash"] == world["password"]):
+            if role == "guest" and world["visibility"] not in ("public", "showcase") and not (world["visibility"] == "password" and ticket["password_hash"] == world["password"]):
                 raise Denied("Access has changed")
             players = set(json.loads(run["players"]))
             sessions = {r[0] for r in self.db.execute("SELECT ckey FROM sessions WHERE run=?", (run_id,))}
@@ -469,7 +469,8 @@ class Supervisor:
             self.db.execute("UPDATE worlds SET last_used=? WHERE id=?", (self.clock(), world["id"]))
             self.db.execute("UPDATE runs SET empty_since=NULL WHERE id=?", (run_id,))
             self.audit(ckey(actor), "admit", world["id"])
-            return {"ok": True, "world": world["id"], "run": run_id, "role": role}
+            return {"ok": True, "world": world["id"], "run": run_id, "role": role,
+                    "mode": "showcase" if role == "guest" and world["visibility"] == "showcase" else "player"}
 
     def begin_stop(self, run):
         if run["id"] in self.stop_workers:

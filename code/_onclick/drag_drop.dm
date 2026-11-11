@@ -122,6 +122,10 @@
 	return TRUE
 
 /client/MouseDown(datum/object, location, control, params)
+#ifdef BABYLON_BUILDER // BABYLON13: do not dispatch spectator mouse-down events.
+	if(babylon_showcase_visitor)
+		return
+#endif
 	if(QDELETED(object)) //Yep, you can click on qdeleted things before they have time to nullspace. Fun.
 		return
 	SEND_SIGNAL(src, COMSIG_CLIENT_MOUSEDOWN, object, location, control, params)
@@ -136,6 +140,10 @@
 			sleep(delay)
 
 /client/MouseUp(object, location, control, params)
+#ifdef BABYLON_BUILDER // BABYLON13: do not dispatch spectator mouse-up events.
+	if(babylon_showcase_visitor)
+		return
+#endif
 	if(SEND_SIGNAL(src, COMSIG_CLIENT_MOUSEUP, object, location, control, params) & COMPONENT_CLIENT_MOUSEUP_INTERCEPT)
 		click_intercept_time = world.time
 	if(mouse_up_icon)
@@ -163,6 +171,10 @@
 	return TRUE
 
 /client/MouseDrag(src_object,atom/over_object,src_location,over_location,src_control,over_control,params)
+#ifdef BABYLON_BUILDER // BABYLON13: visitors cannot trigger drag handlers.
+	if(babylon_showcase_visitor)
+		return
+#endif
 	var/list/modifiers = params2list(params)
 	if (LAZYACCESS(modifiers, MIDDLE_CLICK))
 		if (src_object && src_location != over_location)
@@ -185,6 +197,10 @@
 
 /client/MouseDrop(atom/src_object, atom/over_object, atom/src_location, atom/over_location, src_control, over_control, params)
 	SHOULD_NOT_OVERRIDE(TRUE)
+#ifdef BABYLON_BUILDER // BABYLON13: no atom MouseDrop dispatch for showcase visitors.
+	if(babylon_showcase_visitor)
+		return
+#endif
 
 	if (IS_WEAKREF_OF(src_object, middle_drag_atom_ref))
 		middragtime = 0

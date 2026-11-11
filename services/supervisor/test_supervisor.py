@@ -75,6 +75,46 @@ class Policies(unittest.TestCase):
         token = self.ticket(w, "admin")
         self.assertEqual(self.s.redeem(run["id"], run["secret"], token, "admin")["role"], "admin")
 
+    def test_showcase_guest_visits_while_members_and_admins_play(self):
+        world = self.s.dispatch("owner", "create", dict(name="Showcase", visibility="showcase", max_players=2))["id"]
+        self.assertEqual(self.s.dispatch("visitor", "list", {})["worlds"][0]["visibility"], "showcase")
+        self.s.dispatch("owner", "member", dict(world=world, member="friend"))
+        run = self.start(world)
+        for actor, expected in (("visitor", "showcase"), ("friend", "player"), ("owner", "player"), ("admin", "player")):
+            with self.subTest(actor=actor):
+                token = self.ticket(world, actor)
+                result = self.s.redeem(run["id"], run["secret"], token, actor)
+                self.assertEqual(result["mode"], expected)
+                self.s.db.execute("DELETE FROM sessions")
+
+    def test_showcase_mode_is_decided_at_redemption_not_from_join_payload(self):
+        world = self.s.dispatch("owner", "create", dict(name="Showcase", visibility="showcase"))["id"]
+        run = self.start(world)
+        token = self.ticket(world, "visitor", mode="player", role="owner")
+        self.assertEqual(self.s.redeem(run["id"], run["secret"], token, "visitor")["mode"], "showcase")
+        token = self.ticket(world, "upgraded")
+        self.s.dispatch("owner", "member", dict(world=world, member="upgraded"))
+        # Membership changes revoke that actor's pending ticket.
+        with self.assertRaises(Denied):
+            self.s.redeem(run["id"], run["secret"], token, "upgraded")
+        token = self.ticket(world, "upgraded")
+        self.assertEqual(self.s.redeem(run["id"], run["secret"], token, "upgraded")["mode"], "player")
+
+    def test_showcase_tickets_fail_when_world_becomes_private(self):
+        world = self.s.dispatch("owner", "create", dict(name="Showcase", visibility="showcase"))["id"]
+        run = self.start(world)
+        token = self.ticket(world, "visitor")
+        # Simulate an access change racing with ticket redemption.
+        self.s.db.execute("UPDATE worlds SET visibility='private' WHERE id=?", (world,))
+        with self.assertRaisesRegex(Denied, "Access has changed"):
+            self.s.redeem(run["id"], run["secret"], token, "visitor")
+
+    def test_public_guests_still_get_normal_play_mode(self):
+        world = self.create()
+        run = self.start(world)
+        token = self.ticket(world, "visitor")
+        self.assertEqual(self.s.redeem(run["id"], run["secret"], token, "visitor")["mode"], "player")
+
     def test_password_and_no_password_leak(self):
         w = self.s.dispatch("owner", "create", {"name": "Locked", "visibility": "password", "password": "secret"})["id"]
         self.assertNotIn("secret", json.dumps(self.s.dispatch("visitor", "list", {})))
@@ -133,8 +173,8 @@ class Policies(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(self.driver.starts, 1)
 
-    def test_guests_cannot_start_public_or_password_worlds(self):
-        for visibility in ("public", "password"):
+    def test_guests_cannot_start_public_password_or_showcase_worlds(self):
+        for visibility in ("public", "password", "showcase"):
             with self.subTest(visibility=visibility):
                 w = self.s.dispatch("owner", "create", {"name": "Offline", "visibility": visibility, "password": "secret"})["id"]
                 with self.assertRaisesRegex(Denied, "offline"):

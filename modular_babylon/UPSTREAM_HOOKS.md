@@ -1,7 +1,7 @@
 # Upstream integration hooks
 
 Babylon is opt-in: compile `babylon.dme`. The upstream `tgstation.dme` is
-unchanged. The nine modified upstream DM files use hooks guarded by
+unchanged. The thirteen modified upstream DM files use hooks guarded by
 `BABYLON_BUILDER` and marked `BABYLON13`. Ordinary SPLURT builds compile
 those blocks out.
 
@@ -18,7 +18,11 @@ applied to the fresh upstream map at preparation time, without a copied map.
 | `code/game/machinery/computer/atmos_computers/_air_sensor.dm` | Skip fresh-map automatic vent claiming for restored sensors. |
 | `code/__HELPERS/priority_announce.dm` | Suppress round announcements and command reports in the builder world. |
 | `modular_zubbers/code/modules/storyteller/divergency_report.dm` | Suppress round-start station-trait reporting. |
-| `code/modules/client/client_procs.dm` | Validate single-use lobby admission before registering a child client or creating an avatar. Standalone builds restrict access to their configured owner. |
+| `code/modules/client/client_procs.dm` | Validate single-use lobby admission before registering a child client or creating an avatar. Enforce showcase play mode and restrict visitor Topics/clicks before target dispatch. Standalone builds restrict access to their configured owner. |
+| `code/controllers/subsystem/verbs.dm` | Enforce the visitor verb allowlist for native/context verbs, including verbs belonging to world objects. |
+| `code/_onclick/drag_drop.dm` | Reject showcase visitor mouse-down/up, drag and drop before target handlers or signals run. |
+| `code/modules/keybindings/bindings_client.dm` | Limit visitor shortcuts to chat and harmless display controls; normal movement handling remains available. |
+| `code/modules/mob/mob_movement.dm` | Enforce the visitor body before accepting movement, including reconnects from a former playable body. |
 | `code/modules/atmospherics/machinery/components/unary_devices/airlock_pump.dm` | Skip fresh-install door animations for saved pumps; rebuild their saved connections after restoration. |
 | `code/datums/materials/material_container/material_container.dm` | Discard invalid material keys before UI generation and stock accounting, preserving valid quantities. |
 | `tgui/packages/tgui/interfaces/VaultController.tsx` | Render the Babylon generation interlock (live generation, ignored battery output, hold timer) when the controller sends those fields; the upstream charge view is unchanged otherwise. Rebuild the TGUI bundle after editing. |

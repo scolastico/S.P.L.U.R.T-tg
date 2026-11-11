@@ -263,6 +263,27 @@ remain because SS13 systems depend on them. This does not yet remove all
 unused upstream types or make a one-z DreamDaemon. The lobby itself contains
 none of those systems.
 
+## Showcase worlds
+
+Visibility choices are **private**, **showcase**, **password**, and **public**.
+Showcase worlds are listed in the lobby. Owners, members and server admins
+join as normal players; guests can **Visit showcase** while it is online.
+Guests cannot start an offline world.
+
+Visitors appear to living players as visible, nonphysical ghosts. They can
+move through the station and chat locally with nearby players, or use OOC.
+They cannot operate machinery, use items, drag objects, enter a body, use
+ghost powers, or trigger object/context verbs. Chat is sent only to clients
+and cannot activate speech-controlled machinery. The visitor HUD has a
+Return to lobby button. Visitor bodies are temporary and never receive a
+drone, inventory or persistent player-roster entry. Existing saved bodies
+remain untouched when a former player visits as a guest.
+
+The supervisor selects the play mode when redeeming the single-use ticket;
+connection parameters cannot request builder access. Members added while
+visiting must reconnect through the lobby to enter as players. Visitors count
+toward the world capacity and online population and follow its AFK timeout.
+
 ## AFK disconnection
 
 Worlds disconnect inactive players after 900 seconds (15 minutes) by default.

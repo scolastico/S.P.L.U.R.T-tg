@@ -14,6 +14,7 @@
 #include "modular_babylon/code/drone_recovery.dm"
 #include "modular_babylon/code/control.dm"
 #include "modular_babylon/code/admission.dm"
+#include "modular_babylon/code/showcase.dm"
 #include "modular_babylon/code/builder_experience.dm"
 #include "modular_babylon/code/lore.dm"
 #include "modular_babylon/code/vault.dm"

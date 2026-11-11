@@ -46,6 +46,44 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	qdel(ghost)
 	return result
 
+/datum/babylon_save/proc/test_showcase_visitor()
+	var/roster_before = length(player_sessions)
+	var/turf/start = respawn_turf
+	var/turf/destination = get_step(start, EAST)
+	var/mob/dead/babylon_visitor/visitor = new(start)
+	var/obj/structure/closet/crate/crate = new(destination)
+	var/obj/item/screwdriver/tool = new(start)
+	var/list/result = list()
+	result["visible_to_living"] = !visitor.invisibility && visitor.plane == builder.plane && visitor.alpha > 0
+	result["not_an_observer"] = !isobserver(visitor)
+	result["no_inventory"] = !length(visitor.contents) && !visitor.put_in_hands(tool) && tool.loc == start
+	result["no_physical_actions"] = !visitor.can_perform_action(crate, NONE) && !visitor.can_interact_with(crate) && !visitor.start_pulling(crate)
+	visitor.ClickOn(crate, "left=1")
+	visitor.UnarmedAttack(crate, TRUE)
+	result["cannot_open_crate"] = !crate.opened
+	result["no_possession"] = isnull(visitor.ghostize()) && !("can_reenter_corpse" in visitor.vars)
+	result["no_emote_actions"] = !visitor.emote("boo")
+	result["passes_through_solids"] = visitor.Move(destination, EAST) && visitor.loc == destination && crate.density
+	var/turf/outside = locate(1, 1, station_z == 1 ? 2 : 1)
+	result["station_only"] = outside && !visitor.Move(outside, NORTH) && visitor.loc == destination
+	result["no_player_roster"] = length(player_sessions) == roster_before
+	result["raw_machine_link_blocked"] = !babylon_showcase_topic_allowed(list("src" = REF(crate), "open" = 1))
+	result["machine_ui_blocked"] = !babylon_showcase_topic_allowed(list("tgui" = TRUE, "window_id" = "tgui1", "type" = "act", "payload" = "{}"))
+	result["chunk_bypass_blocked"] = !babylon_showcase_topic_allowed(list("tgui" = TRUE, "window_id" = "browseroutput", "type" = "oversizedPayloadRequest", "payload" = "{}"))
+	result["forged_verb_blocked"] = !babylon_showcase_topic_allowed(list("tgui" = TRUE, "window_id" = "browseroutput", "type" = "verbs/invoke", "payload" = json_encode(list("verb_type" = "/mob/dead/observer/proc/reenter_corpse"))))
+	result["chat_ready_allowed"] = babylon_showcase_topic_allowed(list("tgui" = TRUE, "window_id" = "browseroutput", "type" = "ready"))
+	result["chat_metadata_without_payload"] = babylon_showcase_topic_allowed(list("tgui" = TRUE, "window_id" = "browseroutput", "type" = "requestMetadata"))
+	result["chat_verbs_without_payload"] = babylon_showcase_topic_allowed(list("tgui" = TRUE, "window_id" = "browseroutput", "type" = "verbs/request_verbs"))
+	result["chat_entry_allowed"] = babylon_showcase_topic_allowed(list("tgui" = TRUE, "window_id" = "tgui_say", "type" = "entry", "payload" = json_encode(list("channel" = SAY_CHANNEL, "entry" = "Hello"))))
+	result["say_verb_allowed"] = babylon_showcase_topic_allowed(list("tgui" = TRUE, "window_id" = "browseroutput", "type" = "verbs/invoke", "payload" = json_encode(list("verb_type" = "/mob/verb/say_verb"))))
+	result["invalid_chat_payload_blocked"] = !babylon_showcase_topic_allowed(list("tgui" = TRUE, "window_id" = "tgui_say", "type" = "entry", "payload" = "not json"))
+	result["unsafe_channel_blocked"] = !babylon_showcase_topic_allowed(list("tgui" = TRUE, "window_id" = "tgui_say", "type" = "entry", "payload" = json_encode(list("channel" = ME_CHANNEL, "entry" = "boo"))))
+	result["asset_link_cannot_smuggle_action"] = !babylon_showcase_topic_allowed(list("asset_cache_confirm_arrival" = 1, "src" = REF(crate), "open" = 1))
+	qdel(visitor)
+	qdel(crate)
+	qdel(tool)
+	return result
+
 /datum/babylon_debug/proc/resolve_target(reference)
 	switch(reference)
 		if("builder")

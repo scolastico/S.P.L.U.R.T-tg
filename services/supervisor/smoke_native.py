@@ -102,6 +102,9 @@ def main():
         afk = call(run, "session", "test_afk_policy")
         afk = {entry["entry"]: entry["value"] for entry in afk["entries"]}
         assert afk and all(afk.values()), afk
+        showcase = call(run, "session", "test_showcase_visitor")
+        showcase = {entry["entry"]: entry["value"] for entry in showcase["entries"]}
+        assert showcase and all(showcase.values()), showcase
         experience = call(run, "session", "test_builder_experience")
         experience = {entry["entry"]: entry["value"] for entry in experience["entries"]}
         for key in ("replacement_items", "replacement_storage", "replacement_head", "station_confinement", "physical_cafe_turfs"):
@@ -160,8 +163,20 @@ def main():
         inventory = [r for r in before["records"] if r.get("parent") == friend_id]
         for item in inventory:
             assert objects[item["id"]].get("parent") == friend_id
+        # A real showcase child must classify admission through native HTTP,
+        # including attempts to request player access from an untrusted guest.
+        showcase_world = api("create", dict(name="Native showcase", visibility="showcase"))["id"]
+        showcase_run = wait_ready(showcase_world)
+        for actor, mode in (("smokevisitor", "showcase"), ("smokeowner", "player"), ("testadmin", "player")):
+            address = api("join", dict(world=showcase_world, mode="player"), actor=actor)["address"]
+            query = dict(action="redeem", actor=actor, ticket=address.split("babylon_ticket=")[1], mode="player")
+            exported = call(showcase_run, "session", "test_supervisor_export", [json.dumps(query)])
+            fields = {entry["entry"]: entry["value"] for entry in exported["entries"]}
+            assert fields.get("ok") and fields.get("mode") == mode, fields
+        stop(showcase_world)
         report = dict(passed=True, real_child_start_stop=True, http_ticket_redemption=True,
-                      afk_policy=True,
+                      afk_policy=True, showcase_read_only_visitor=True,
+                      showcase_ticket_redemption=True,
                       replay_rejected=True, admin_private_bypass=True, multiplayer_roster=True,
                       second_inventory=True, second_respawn=True, enclosed_drone=True,
                       empty_respawn=True, ghost_hud_trimmed=True, physical_cafe_turfs=0,

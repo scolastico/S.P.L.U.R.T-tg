@@ -37,6 +37,10 @@ GLOBAL_LIST_INIT(unrecommended_builds, list(
 /client/Topic(href, href_list, hsrc, hsrc_command)
 	if(!usr || usr != mob) //stops us calling Topic for somebody else's client. Also helps prevent usr=null
 		return
+#ifdef BABYLON_BUILDER // BABYLON13: spectators cannot send arbitrary machine/atom links.
+	if(babylon_showcase_visitor && !babylon_showcase_topic_allowed(href_list))
+		return
+#endif
 	//SKYRAT EDIT ADDITION BEGIN - MENTOR
 	if(mentor_client_procs(href_list))
 		return
@@ -615,6 +619,11 @@ GLOBAL_LIST_INIT(unrecommended_builds, list(
 	Master.UpdateTickRate()
 	SEND_GLOBAL_SIGNAL(COMSIG_GLOB_CLIENT_CONNECT, src)
 	fully_created = TRUE
+#ifdef BABYLON_BUILDER // BABYLON13: enforce the ticket's play mode before input is accepted.
+	if(babylon_showcase_visitor)
+		babylon_restrict_visitor_verbs()
+		GLOB.babylon_save.ensure_showcase_visitor(src)
+#endif
 	set_fullscreen()
 
 //////////////
@@ -909,6 +918,11 @@ GLOBAL_LIST_INIT(unrecommended_builds, list(
 	create_message("note", key, system_ckey, message, null, null, 0, 0, null, 0, 0)
 
 /client/Click(atom/object, atom/location, control, params)
+#ifdef BABYLON_BUILDER // BABYLON13: intercept before any target click handlers or signals.
+	if(babylon_showcase_visitor)
+		babylon_visitor_click(object)
+		return
+#endif
 	if(click_intercept_time)
 		if(click_intercept_time >= world.time)
 			click_intercept_time = 0 //Reset and return. Next click should work, but not this one.

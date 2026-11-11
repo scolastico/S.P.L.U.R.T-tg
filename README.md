@@ -35,6 +35,8 @@ so upstream changes can continue to be merged.
   and a Babylon-specific awakening with six discoverable lore papers.
 - Immediate join progress, clearly marked lobby tabs/world states, and automatic
   cleanup of unused stopped worlds after a configurable 60 days (0 disables it).
+- Showcase worlds: members build while guests visit as visible, nonphysical
+  ghosts with station exploration and chat access only.
 
 These features were ported from a local prototype. The fork still needs
 broader validation, save-schema evolution and failure recovery work.
@@ -101,7 +103,7 @@ suffix. Babylon has its own compilation/container workflow; documentation and
 map-viewer workflows are also enabled. Newly merged upstream workflows must
 remain disabled until they are reviewed for this fork.
 
-See [UPSTREAM_HOOKS.md](modular_babylon/UPSTREAM_HOOKS.md) for the six small,
+See [UPSTREAM_HOOKS.md](modular_babylon/UPSTREAM_HOOKS.md) for the documented,
 compile-guarded integration patches and the merge/validation checklist. Normal
 SPLURT builds do not include the Babylon module.
 

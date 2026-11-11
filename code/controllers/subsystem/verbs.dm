@@ -49,6 +49,10 @@ SUBSYSTEM_DEF(verbs)
 		user_client = mob_target.client
 	if(!user_client)
 		return
+#ifdef BABYLON_BUILDER // BABYLON13: object/context verbs must not bypass visitor restrictions.
+	if(user_client.babylon_showcase_visitor && !babylon_showcase_allowed_verb(verb_path))
+		return
+#endif
 
 	var/list/structured_args = ____collect_verb_args(user_client, meta.name, meta.arguments, positional_args)
 	if(isnull(structured_args))
