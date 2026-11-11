@@ -1,8 +1,12 @@
 # Babylon13
 
-> **Work in progress — not ready to use or host publicly.**
-> This is an experimental foundation, not a released game or a production
-> persistence service. Do not entrust an irreplaceable world to it.
+**Play now:** `byond://62.84.176.153:1361`
+(server `62.84.176.153`, lobby port `1361`; open it with BYOND).
+
+> **Beta — expect refinement and tuning.**
+> Babylon13 is playable, but still in beta: gameplay, balance and persistence
+> will keep being refined and tuned, and things can still break. Keep that in
+> mind before entrusting an irreplaceable world to it.
 
 Babylon13 is a fork of [S.P.L.U.R.T.](https://github.com/SPLURT-Station/S.P.L.U.R.T-tg)
 for developing persistent Babylon building worlds. It keeps upstream Git
