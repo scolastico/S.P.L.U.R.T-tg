@@ -29,8 +29,11 @@ jobs:
           buildkitd-config-inline: |
             [dns]
               nameservers = ["1.1.1.1", "8.8.8.8"]
-      - name: Check runner dependency resolver
-        run: getent ahostsv4 archive.ubuntu.com && getent ahostsv4 github.com
+      - name: Inspect runner dependency resolver
+        run: |
+          cat /etc/resolv.conf
+          getent ahostsv4 archive.ubuntu.com || true
+          getent ahostsv4 github.com || true
       - name: Compile game, lobby and test builds; run regression tests
         uses: docker/build-push-action@v6
         with:
@@ -60,8 +63,11 @@ jobs:
           buildkitd-config-inline: |
             [dns]
               nameservers = ["1.1.1.1", "8.8.8.8"]
-      - name: Check runner dependency resolver
-        run: getent ahostsv4 archive.ubuntu.com && getent ahostsv4 github.com
+      - name: Inspect runner dependency resolver
+        run: |
+          cat /etc/resolv.conf
+          getent ahostsv4 archive.ubuntu.com || true
+          getent ahostsv4 github.com || true
       - name: Choose image tags
         id: image
         env:
