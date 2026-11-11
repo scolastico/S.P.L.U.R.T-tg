@@ -40,6 +40,9 @@ var/global/list/lobby_config
 	var/notice = ""
 	var/list/cards = list()
 	var/player_limit = 4
+	var/browser_initialized = 0
+	var/request_revision = 0
+	var/last_browser_content = ""
 
 /mob/lobby/Login()
 	..()
@@ -66,22 +69,29 @@ var/global/list/lobby_config
 	return "<!doctype html><html><head><meta charset='utf-8'><meta http-equiv='X-UA-Compatible' content='IE=edge'><style>[file2text('modular_babylon/lobby/style.css')]</style><script>[file2text('modular_babylon/lobby/loading.js')]</script></head><body>"
 
 /mob/lobby/proc/loading_panel(world_name, stage)
-	return "<div class='loading-shell'><section class='loading' role='status' aria-live='polite' aria-busy='true'><div class='spinner'></div><div class='brand'>BABYLON // WORLD CONNECTION</div><h1 id='loading-world'>[html_encode(world_name)]</h1><p>[html_encode(stage)]</p><small>Keep this client open. Starting a sleeping world can take a little while.</small></section></div>"
+	return "<div class='loading-shell'><section class='loading' role='status' aria-live='polite' aria-busy='true'><div class='spinner'></div><div class='brand'>BABYLON // WORLD MANAGEMENT</div><h1 id='loading-world'>[html_encode(world_name)]</h1><p id='loading-stage'>[html_encode(stage)]</p><small>Keep this client open while your request completes.</small></section></div>"
 
 /mob/lobby/proc/show_loading(world_name, stage)
 	if(client)
-		src << browse("[page_start()][loading_panel(world_name, stage)]</body></html>", "window=lobby.browser")
+		src << output(list2params(list(world_name, stage)), "lobby.browser:showLobbyLoading")
 
-/mob/lobby/proc/show_browser()
+/mob/lobby/proc/operation_api(action, list/payload, world_name, stage)
+	show_loading(world_name, stage)
+	// Flush the loading panel before synchronous work starts.
+	sleep(1)
+	return api(action, payload)
+
+/mob/lobby/proc/show_browser(complete = 0)
+	var/revision = request_revision
 	var/list/result = api("list")
-	// A poll that started before Join must not overwrite its loading screen.
-	if(!client || busy)
+	// An old poll must not overwrite a click, even if its action has finished.
+	if(!client || busy || revision != request_revision)
 		return
-	var/content = "[page_start()]<main id='browser-content'><div class='brand'>BABYLON 13</div><div class='top'><h1>Your station, your next chapter.</h1><a class='button primary' href='?src=\ref[src];action=create'>+ New game</a></div><nav class='tabs' aria-label='World categories'>"
+	var/content = "<div class='brand'>BABYLON 13</div><div class='top'><h1>Your station, your next chapter.</h1><a class='button primary' data-stage='Waiting for world settings...' onclick='return beginAction(this)' href='?src=\ref[src];action=create'>+ New game</a></div><nav class='tabs' aria-label='World categories'>"
 	var/list/tabs = list("active" = "Active worlds", "mine" = "My worlds", "shared" = "Shared with me", "all" = "Browse worlds")
 	for(var/tab in tabs)
 		var/selected = view_filter == tab
-		content += "<a class='[selected ? "active" : ""]' aria-current='[selected ? "page" : "false"]' href='?src=\ref[src];action=filter;filter=[tab]'>[tabs[tab]]</a>"
+		content += "<a class='[selected ? "active" : ""]' aria-current='[selected ? "page" : "false"]' data-stage='Loading worlds...' onclick='return beginAction(this)' href='?src=\ref[src];action=filter;filter=[tab]'>[tabs[tab]]</a>"
 	content += "</nav><h2 class='page-heading'>[tabs[view_filter]]</h2>"
 	var/list/descriptions = list("active" = "Worlds currently running, starting or stopping. Join an online world to continue building.", "mine" = "Worlds you own. Start an offline world, change its settings, or restore a saved checkpoint.", "shared" = "Worlds where you have membership. You can start these even when the owner is away.", "all" = "Worlds available to your account. Guests can join online worlds; owners, members and admins can start offline worlds.")
 	content += "<p class='muted'>[descriptions[view_filter]]</p>"
@@ -109,15 +119,15 @@ var/global/list/lobby_config
 			var/world_name = html_encode(card["name"])
 			rendered += "<section class='card'><div class='card-head'><h2>[world_name]</h2><span class='badge [html_encode(card["state"])]'>[states[card["state"]] || "Unknown"]</span></div><p>[html_encode(card["description"] || "A Babylon station waiting to be rebuilt.")]</p><div class='meta'>Owner: [html_encode(card["owner"])] &nbsp; | &nbsp; Access: [html_encode(card["visibility"])] &nbsp; | &nbsp; [card["players"]]/[card["max_players"]] players online<br>Your role: <b>[html_encode(card["role"])]</b> &nbsp; | &nbsp; Last active: [html_encode(card["last_active"] || "Unknown")]<br>Last save: [html_encode(card["last_save"] || "None yet")]</div><div class='actions'>"
 			if(card["role"] != "guest" || card["state"] != "stopped")
-				rendered += "<a class='button primary' data-world='[world_name]' onclick='return beginJoin(this)' href='?src=\ref[src];action=join;world=[id]'>[card["state"] == "stopped" ? "Start and join" : "Join world"]</a>"
+				rendered += "<a class='button primary' data-world='[world_name]' data-stage='Preparing your connection...' onclick='return beginAction(this)' href='?src=\ref[src];action=join;world=[id]'>[card["state"] == "stopped" ? "Start and join" : "Join world"]</a>"
 			else
 				rendered += "<small>An owner, member or admin must start this world.</small>"
 			if(card["role"] == "owner" || card["role"] == "admin")
 				if(card["state"] == "stopped")
-					rendered += "<a class='button' href='?src=\ref[src];action=edit;world=[id]'>Edit settings</a><a class='button' href='?src=\ref[src];action=member;world=[id]'>Members</a><a class='button' href='?src=\ref[src];action=rollback;world=[id]'>Saved checkpoints / rollback</a>"
-					rendered += "<a class='button danger' href='?src=\ref[src];action=delete;world=[id]'>Delete world</a>"
+					rendered += "<a class='button' data-world='[world_name]' data-stage='Waiting for world settings...' onclick='return beginAction(this)' href='?src=\ref[src];action=edit;world=[id]'>Edit settings</a><a class='button' data-world='[world_name]' data-stage='Waiting for membership details...' onclick='return beginAction(this)' href='?src=\ref[src];action=member;world=[id]'>Members</a><a class='button' data-world='[world_name]' data-stage='Loading saved checkpoints...' onclick='return beginAction(this)' href='?src=\ref[src];action=rollback;world=[id]'>Saved checkpoints / rollback</a>"
+					rendered += "<a class='button danger' data-world='[world_name]' data-stage='Waiting for deletion confirmation...' onclick='return beginAction(this)' href='?src=\ref[src];action=delete;world=[id]'>Delete world</a>"
 				else
-					rendered += "<a class='button danger' href='?src=\ref[src];action=stop;world=[id]'>Save and force stop</a>"
+					rendered += "<a class='button danger' data-world='[world_name]' data-stage='Waiting for shutdown confirmation...' onclick='return beginAction(this)' href='?src=\ref[src];action=stop;world=[id]'>Save and force stop</a>"
 			if(card["error"])
 				rendered += "<p class='notice'>[html_encode(card["error"])]</p>"
 			rendered += "</div></section>"
@@ -132,13 +142,20 @@ var/global/list/lobby_config
 		var/expiry = result["delete_unused_worlds_after_days"]
 		var/expiry_text = expiry ? "Unused stopped worlds are deleted after [expiry] days." : "Automatic world expiry is disabled."
 		content += "<footer class='footer'>Server limits: [limits["max_running_worlds"]] running worlds; [limits["max_players_per_world"]] players per world; [limits["max_worlds_per_player"]] worlds and [limits["max_running_worlds_per_player"]] running worlds per owner.<br>Private worlds require membership. Your station continues from its last successful checkpoint.<br>[expiry_text]</footer>"
-	content += "</main><div id='join-loading'>[loading_panel("Preparing your world", "Contacting the supervisor and preparing your connection...")]</div></body></html>"
-	src << browse(content, "window=lobby.browser")
+	if(!browser_initialized)
+		var/initial = json_encode(json_encode(list("html" = content, "view" = view_filter, "revision" = revision, "complete" = 1)))
+		var/shell = "[page_start()]<main id='browser-content'></main><div id='action-loading' style='display:none'>[loading_panel("Your world", "Working...")]</div><script>renderLobby([initial]);</script></body></html>"
+		src << browse(shell, "window=lobby.browser")
+		browser_initialized = 1
+	else if(complete || content != last_browser_content)
+		src << output(list2params(list(json_encode(list("html" = content, "view" = view_filter, "revision" = revision, "complete" = complete)))), "lobby.browser:renderLobby")
+	last_browser_content = content
 
 /mob/lobby/Topic(href, list/params)
 	if(usr != src || !client || busy)
 		return
 	busy = 1
+	request_revision++
 	if(params["action"] == "join")
 		var/list/card = cards[params["world"]]
 		show_loading(card ? card["name"] : "Your world", "Contacting the supervisor and preparing your connection...")
@@ -149,7 +166,7 @@ var/global/list/lobby_config
 		notice = "Request failed. Please try again."
 	busy = 0
 	if(client)
-		show_browser()
+		show_browser(1)
 
 /mob/lobby/proc/handle_action(list/params)
 	var/action = params["action"]
@@ -186,7 +203,7 @@ var/global/list/lobby_config
 		if(isnull(maximum))
 			return
 		payload["max_players"] = maximum
-		var/list/result = api(action, payload)
+		var/list/result = operation_api(action, payload, name, action == "create" ? "Creating your world..." : "Saving world settings...")
 		notice = result["error"] || "World settings saved."
 		view_filter = "mine"
 	else if(action == "join")
@@ -209,7 +226,7 @@ var/global/list/lobby_config
 			sleep(20)
 		notice = "Startup is taking longer than expected. Check the world status and try Join again."
 	else if(action == "rollback")
-		var/list/history = api("checkpoints", payload)
+		var/list/history = operation_api("checkpoints", payload, card["name"], "Loading saved checkpoints...")
 		if(history["error"])
 			notice = history["error"]
 			return
@@ -228,7 +245,7 @@ var/global/list/lobby_config
 		payload["generation"] = options[choice]
 		payload["expected_latest"] = history["latest"]
 		payload["confirm_delete_newer"] = 1
-		var/list/result = api("rollback", payload)
+		var/list/result = operation_api("rollback", payload, card["name"], "Restoring checkpoint and removing newer saves...")
 		notice = result["error"] || "Checkpoint restored. Newer checkpoints deleted: [result["deleted"]]. Join to continue from this point."
 	else if(action == "delete")
 		if(card["role"] != "owner" && card["role"] != "admin")
@@ -236,13 +253,34 @@ var/global/list/lobby_config
 		if(alert(src, "Permanently delete [card["name"]]? This deletes the entire world and ALL saved checkpoints for everyone. This cannot be undone.", "Delete world", "Cancel", "Delete permanently") != "Delete permanently")
 			return
 		payload["confirm_delete"] = 1
-		var/list/result = api("delete", payload)
+		var/list/result = operation_api("delete", payload, card["name"], "Deleting world and all saved checkpoints...")
 		notice = result["error"] || "World permanently deleted."
 	else if(action == "stop")
 		if(alert(src, "Save and stop this world now? All remaining players will be returned to the lobby.", "Force stop", "Cancel", "Stop world") != "Stop world")
 			return
-		var/list/result = api("stop", payload)
-		notice = result["error"] || "Stop requested. The final checkpoint is saved before shutdown."
+		var/list/result = operation_api("stop", payload, card["name"], "Saving the final checkpoint and stopping the world...")
+		if(result["error"])
+			notice = result["error"]
+			return
+		var/deadline = world.time + 1800
+		while(client && world.time < deadline)
+			var/list/status = api("list")
+			if(status["error"])
+				notice = status["error"]
+				return
+			var/list/current
+			for(var/list/item in status["worlds"])
+				if(item["id"] == id)
+					current = item
+					break
+			if(!current || current["state"] == "stopped")
+				notice = "World saved and stopped."
+				return
+			if(current["error"] || current["state"] == "error")
+				notice = current["error"] || "The world could not stop. Check its status before trying again."
+				return
+			sleep(10)
+		notice = "Shutdown is still in progress. Check the world status before joining again."
 	else if(action == "member")
 		var/who = input(src, "BYOND account to grant or remove access", "Membership") as null|text
 		if(!who)
@@ -252,9 +290,9 @@ var/global/list/lobby_config
 			return
 		payload["member"] = who
 		payload["role"] = role
-		var/list/result = api("member", payload)
+		var/list/result = operation_api("member", payload, card["name"], "Updating world membership...")
 		notice = result["error"] || "Membership updated."
 
 /mob/lobby/verb/open_lobby()
 	set name = "Open Babylon lobby"
-	show_browser()
+	show_browser(1)

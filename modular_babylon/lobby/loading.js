@@ -1,9 +1,46 @@
-function beginJoin(link) {
-  var main = document.getElementById('browser-content');
-  var loading = document.getElementById('join-loading');
-  var name = document.getElementById('loading-world');
-  if (name) name.textContent = link.getAttribute('data-world') || 'your world';
-  if (main) main.style.display = 'none';
-  if (loading) { loading.style.display = 'block'; loading.setAttribute('aria-busy', 'true'); }
+// One browser document keeps status updates from resetting the viewport.
+var lobbyView = '';
+var lobbyScroll = {};
+var lobbyPending = false;
+var lobbyRevision = -1;
+
+function rememberLobbyScroll() {
+  if (lobbyView && !lobbyPending) {
+    lobbyScroll[lobbyView] = window.pageYOffset || document.documentElement.scrollTop || 0;
+  }
+}
+
+function showLobbyLoading(name, stage) {
+  rememberLobbyScroll();
+  lobbyPending = true;
+  document.getElementById('loading-world').textContent = name || 'Your world';
+  document.getElementById('loading-stage').textContent = stage || 'Working...';
+  document.getElementById('browser-content').style.display = 'none';
+  document.getElementById('action-loading').style.display = 'block';
+  window.scrollTo(0, 0);
+}
+
+function beginAction(link) {
+  if (lobbyPending) return false;
+  showLobbyLoading(link.getAttribute('data-world') || 'Babylon 13',
+    link.getAttribute('data-stage') || 'Preparing your request...');
   return true;
+}
+
+function renderLobby(encoded) {
+  var data = JSON.parse(encoded);
+  if (data.revision < lobbyRevision || (lobbyPending && !data.complete)) return;
+  rememberLobbyScroll();
+  lobbyRevision = data.revision;
+  lobbyView = data.view;
+  var main = document.getElementById('browser-content');
+  if (main.innerHTML !== data.html) main.innerHTML = data.html;
+  document.getElementById('action-loading').style.display = 'none';
+  main.style.display = 'block';
+  lobbyPending = false;
+  var position = lobbyScroll[lobbyView] || 0;
+  window.scrollTo(0, position);
+  setTimeout(function () {
+    if (!lobbyPending && lobbyView === data.view && lobbyRevision === data.revision) window.scrollTo(0, position);
+  }, 0);
 }

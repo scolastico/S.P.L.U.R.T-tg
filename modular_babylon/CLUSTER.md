@@ -202,6 +202,14 @@ Running worlds must be saved/stopped first. Deletion revokes memberships,
 tickets and sessions, releases the owner's world quota, and removes that
 world's data directory. Filesystem failures retain a cleanup journal for retry.
 
+The lobby shows a loading panel before slow requests, including deletion,
+checkpoint restoration, settings and membership changes. Shutdown stays on
+that panel until the final save and process exit are confirmed, or an error
+or timeout is reported. Cancelling a dialog returns to the world list.
+Background status polls update the existing browser document only when its
+content changes; each tab keeps its scroll position. Late poll responses
+cannot overwrite an action's loading state.
+
 ## Persistence repairs carried over from the local prototype
 
 Checkpoints retain air-alarm threshold datums and selected mode, cycling-pump

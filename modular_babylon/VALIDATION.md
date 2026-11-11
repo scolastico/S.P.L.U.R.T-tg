@@ -134,3 +134,17 @@ map and checkpoint files remain ignored in the disposable checkout.
   tests; this port does not change their implementation.
 - Test children exit after completion. No private player save, live world,
   credential, or generated binary is committed.
+
+## Lobby loading and scroll behavior (2026-11-11)
+
+- `babylon-lobby.dme` compiles with zero errors/warnings.
+- `node tools/babylon/test_lobby_loading.cjs` checks immediate loading,
+  duplicate-click blocking, late-poll rejection, completion/cancellation,
+  unchanged-content rendering, and scroll retention across updates and tabs.
+- An isolated native lobby/browser on port 1371 confirmed real DM-to-browser
+  callbacks, tab switching, stable scrolling across the five-second poll,
+  a visible loading panel behind deletion confirmation, cancellation, and
+  the deletion progress message followed by the updated map list. Only a
+  disposable probe world was deleted; its runtime files were removed too.
+- The primary lobby was restarted on port 1361. The supervisor and game-world
+  processes do not need a restart for these browser changes.
