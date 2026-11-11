@@ -38,6 +38,19 @@ class ContainerConfiguration(unittest.TestCase):
         self.assertEqual(config['afk_timeout_seconds'], 300)
         self.assertEqual(runtime.settings(dict(BABYLON_AFK_TIMEOUT_SECONDS='0'))[0]['afk_timeout_seconds'], 0)
 
+    def test_hub_listing_is_opt_in_and_configurable(self):
+        lobby = runtime.settings({})[1]
+        self.assertFalse(lobby['hub_listed'])
+        self.assertEqual((lobby['hub'], lobby['name']), ('Exadv1.spacestation13', 'Babylon13'))
+        lobby = runtime.settings(dict(BABYLON_HUB_LISTED='True', BABYLON_HUB='Someone.babylon',
+                                      BABYLON_HUB_PASSWORD='s3cret!'))[1]
+        self.assertTrue(lobby['hub_listed'])
+        self.assertEqual((lobby['hub'], lobby['hub_password']), ('Someone.babylon', 's3cret!'))
+        for values in (dict(BABYLON_HUB_LISTED='maybe'), dict(BABYLON_HUB='no-dot'),
+                       dict(BABYLON_HUB_PASSWORD='has space')):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                runtime.settings(values)
+
     def test_invalid_ports_and_unsafe_environment_are_rejected(self):
         for values in (
             dict(BABYLON_API_PORT='1361'), dict(BABYLON_API_PORT='1400'),

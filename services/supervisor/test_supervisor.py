@@ -234,6 +234,16 @@ class Policies(unittest.TestCase):
         self.s.tick()
         self.assertIsNone(self.s.row("SELECT * FROM runs"))
 
+    def test_summary_counts_players_across_running_worlds_without_actor(self):
+        self.assertEqual(self.s.dispatch("", "summary", {}), {"ok": True, "running_worlds": 0, "players": 0})
+        one, two = self.start(self.create("one"), "one"), self.start(self.create("two"), "two")
+        self.driver.runs[one["id"]]["players"] = ["alice", "bob"]
+        self.driver.runs[two["id"]]["players"] = ["carol"]
+        self.s.tick()
+        summary = self.s.dispatch("", "summary", {})
+        self.assertEqual((summary["running_worlds"], summary["players"]), (2, 3))
+        self.assertNotIn("worlds", summary)
+
     def test_restart_keeps_worlds_and_reconciles_child(self):
         w = self.create()
         self.start(w)

@@ -107,7 +107,8 @@ class Driver:
         try:
             process = subprocess.Popen([self.config["dreamdaemon"], "babylon.dmb", str(run["port"]),
                                         "-ip", self.config.get("bind_address", "127.0.0.1"),
-                                        "-trusted", "-close", "-params", params], cwd=root,
+                                        # Worlds only admit lobby tickets: never list them on the BYOND hub.
+                                        "-trusted", "-close", "-invisible", "-params", params], cwd=root,
                                        stdout=log, stderr=log,
                                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         finally:
@@ -296,7 +297,17 @@ class Supervisor:
             raise Denied("A password is required")
         return name, description, visibility, password, maximum
 
+    def summary(self):
+        """Cluster-wide counts for the lobby's hub status; no per-world details."""
+        with self.lock:
+            runs = self.db.execute("SELECT state, players FROM runs").fetchall()
+        active = [run for run in runs if run["state"] in ("starting", "running")]
+        return {"ok": True, "running_worlds": len(active),
+                "players": sum(len(json.loads(run["players"] or "[]")) for run in active)}
+
     def dispatch(self, actor, action, data):
+        if action == "summary":
+            return self.summary()
         actor = ckey(actor)
         if not actor or actor.startswith("guest"):
             raise Denied("Sign in with a BYOND account")

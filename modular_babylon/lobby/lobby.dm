@@ -9,6 +9,8 @@ var/global/list/lobby_config
 	view = 0
 	fps = 5
 	sleep_offline = 1
+	// Hidden until the lobby config opts in (BABYLON_HUB_LISTED).
+	visibility = 0
 
 /world/New()
 	..()
@@ -21,6 +23,41 @@ var/global/list/lobby_config
 	if(!lobby_config["secret"] || !findtext(lobby_config["api"], "http://127.0.0.1:"))
 		world.log << "Lobby requires a loopback API and private lobby credential."
 		del(world)
+		return
+	if(lobby_config["name"])
+		name = lobby_config["name"]
+	// Only the lobby is listed; child worlds run with -invisible and need a lobby ticket anyway.
+	if(lobby_config["hub_listed"])
+		hub = lobby_config["hub"]
+		hub_password = lobby_config["hub_password"]
+		visibility = 1
+	spawn(0)
+		while(1)
+			update_hub_status()
+			sleep(300)
+
+// The hub only counts clients connected to the lobby itself, so the status text
+// carries the cluster-wide total including everyone playing in a child world.
+/world/proc/update_hub_status()
+	var/in_lobby = 0
+	for(var/mob/lobby/M)
+		if(M.client)
+			in_lobby++
+	var/in_worlds = 0
+	var/running = 0
+	var/list/query = list("secret" = lobby_config["secret"], "action" = "summary")
+	var/list/response = Export("[lobby_config["api"]]/api?[list2params(query)]")
+	if(response && response["CONTENT"])
+		try
+			var/list/summary = json_decode(file2text(response["CONTENT"]))
+			if(summary && summary["ok"])
+				in_worlds = text2num("[summary["players"]]") || 0
+				running = text2num("[summary["running_worlds"]]") || 0
+		catch
+			in_worlds = 0
+	var/total = in_lobby + in_worlds
+	status = "<b>[html_encode(name)]</b> &#8212; persistent station building<br>Players: <b>[total]</b> ([in_worlds] in [running] running world[running == 1 ? "" : "s"], [in_lobby] in the lobby)"
+	game_state = 0
 
 /world/Topic()
 	return null

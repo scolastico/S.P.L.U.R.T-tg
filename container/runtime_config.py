@@ -22,6 +22,10 @@ DEFAULTS = {
     'afk_timeout_seconds': 900,
 }
 
+# Upstream's shared Space Station 13 hub entry; its password is public in code/world.dm.
+UPSTREAM_HUB = 'Exadv1.spacestation13'
+UPSTREAM_HUB_PASSWORD = 'kMZy3U5jJHSiBQjr'
+
 
 def settings(env=None, runtime=Path('/run/babylon'), template=ROOT):
     env = os.environ if env is None else env
@@ -57,6 +61,15 @@ def settings(env=None, runtime=Path('/run/babylon'), template=ROOT):
     name = env.get('BABYLON_SERVER_NAME', 'Babylon13')
     if not name.strip() or '\n' in name or '\r' in name:
         raise ValueError('BABYLON_SERVER_NAME must be a nonempty single line')
+    listed = env.get('BABYLON_HUB_LISTED', 'false').strip().lower()
+    if listed not in ('true', 'false', '1', '0', 'yes', 'no'):
+        raise ValueError('BABYLON_HUB_LISTED must be true or false')
+    hub = env.get('BABYLON_HUB', UPSTREAM_HUB)
+    if not re.fullmatch(r'[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+', hub):
+        raise ValueError('BABYLON_HUB must be a BYOND hub path such as Author.Game')
+    hub_password = env.get('BABYLON_HUB_PASSWORD', UPSTREAM_HUB_PASSWORD)
+    if not re.fullmatch(r'[\x21-\x7e]{1,128}', hub_password):
+        raise ValueError('BABYLON_HUB_PASSWORD must be printable ASCII without spaces')
     secret = secrets.token_urlsafe(48)
     address = 'byond://%s:%s' % (host, values['lobby_port'])
     config = {key: values[key] for key in (
@@ -69,7 +82,9 @@ def settings(env=None, runtime=Path('/run/babylon'), template=ROOT):
                   data_directory=env.get('BABYLON_DATA_DIRECTORY', '/data'),
                   template_directory=str(template), config_directory=str(runtime / 'game-config'),
                   dreamdaemon='/opt/byond/bin/DreamDaemon', port_first=first, port_last=last)
-    lobby = dict(api='http://127.0.0.1:%s' % values['api_port'], secret=secret, port=values['lobby_port'])
+    # Only the lobby is ever listed; child worlds run with DreamDaemon -invisible.
+    lobby = dict(api='http://127.0.0.1:%s' % values['api_port'], secret=secret, port=values['lobby_port'],
+                 name=name, hub_listed=listed in ('true', '1', 'yes'), hub=hub, hub_password=hub_password)
     return config, lobby, values, name
 
 

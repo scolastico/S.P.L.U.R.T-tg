@@ -52,6 +52,13 @@ The container locks its data volume so two instances cannot manage it at once.
 For a bind mount, make the directory writable by UID 10001. Existing private
 PoC saves are not automatically imported.
 
+Set `BABYLON_HUB_LISTED=true` to list the lobby on the BYOND hub (default:
+upstream's shared `Exadv1.spacestation13` entry; override with `BABYLON_HUB` and
+`BABYLON_HUB_PASSWORD`). Child worlds always start with DreamDaemon's
+`-invisible` flag, because they only admit lobby tickets. The hub's own player
+counter only sees lobby connections, so the lobby refreshes its hub status every
+30 seconds with the total across the lobby and all running worlds.
+
 All supported settings and defaults are listed in `.env.example`: lobby and
 world ports, internal API port, admin CSV, global/per-owner world limits,
 player limits, retained checkpoints, unused-world expiry, admission lifetime,
