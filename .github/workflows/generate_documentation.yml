@@ -16,7 +16,8 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    # Shared with the map diff viewer, which publishes to the same branch.
+    # Shared with the map diff viewer and the join page, which publish to the
+    # same branch.
     concurrency:
       group: gen-docs
       cancel-in-progress: false
@@ -40,8 +41,11 @@ jobs:
         with:
           branch: gh-pages
           clean: true
-          # Map diffs of open pull requests, published by atlas_map_diff.yml.
-          clean-exclude: atlas-diff
+          # Kept folders published by other workflows: map diffs of open pull
+          # requests (atlas_map_diff.yml) and the join page (join_page.yml).
+          clean-exclude: |
+            atlas-diff
+            join
           single-commit: true
           folder: dmdoc
       - name: Read the complete site, including the map diffs

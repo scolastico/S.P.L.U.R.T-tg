@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join Babylon13</title>
+<meta name="description" content="Join the Babylon13 server with BYOND.">
+<!-- Published to GitHub Pages under join/ by .github/workflows/join_page.yml. -->
+<style>
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;display:flex;align-items:center;justify-content:center;padding:16px;background:#101722;color:#e3eaf4;font:16px 'Segoe UI',Arial,sans-serif}
+main{width:100%;max-width:520px;text-align:center;background:#1c293b;border:1px solid #34465e;border-radius:9px;padding:32px 24px}
+.brand{font-size:13px;letter-spacing:3px;color:#7dd3c7;font-weight:700}
+h1{font-size:30px;margin:8px 0 12px}
+p{line-height:1.55;margin:0 0 16px}
+.muted{color:#a9b9ce;font-size:14px}
+a{color:#a4d9ff;text-decoration:none}
+a:hover{text-decoration:underline}
+.button{display:inline-block;padding:12px 22px;margin:8px 0 18px;border:1px solid #6bcdc1;border-radius:6px;background:#256d66;color:#edf6ff;font-weight:600;font-size:17px}
+.button:hover{background:#2f8279;text-decoration:none}
+code{background:#26374e;border:1px solid #526b8b;border-radius:4px;padding:2px 6px;word-break:break-all}
+.status{min-height:1.55em}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">BABYLON13</div>
+  <h1>Join the server</h1>
+  <p class="status" id="status">Click the button to join.</p>
+  <a class="button" id="join" href="byond://62.84.176.153:1361">Join with BYOND</a>
+  <p class="muted">Nothing happened? Click the button above, or connect to
+    <code>byond://62.84.176.153:1361</code> manually in BYOND.</p>
+  <p class="muted">Don't have BYOND yet? <a href="https://www.byond.com/download/" rel="noopener">Download it here</a>,
+    sign in with a BYOND account, then come back to this page.</p>
+  <noscript><p class="muted">JavaScript is off, so BYOND was not opened automatically. Use the button.</p></noscript>
+</main>
+<script>
+(function () {
+  var link = document.getElementById('join').href;
+  var status = document.getElementById('status');
+  status.textContent = 'Opening BYOND\u2026';
+  try {
+    window.location.href = link;
+  } catch (e) {
+    // Some browsers refuse custom protocol navigation without a click.
+  }
+  setTimeout(function () {
+    status.textContent = 'If BYOND did not open, use the button below.';
+  }, 2500);
+})();
+</script>
+</body>
+</html>

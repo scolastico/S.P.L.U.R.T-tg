@@ -1,7 +1,8 @@
 # Babylon13
 
-**Play now:** `byond://62.84.176.153:1361`
-(server `62.84.176.153`, lobby port `1361`; open it with BYOND).
+**Play now:** [**Click here to join**](https://scolastico.github.io/babylon13/join/)
+or connect BYOND to `byond://62.84.176.153:1361`
+(server `62.84.176.153`, lobby port `1361`).
 
 > **Beta — expect refinement and tuning.**
 > Babylon13 is playable, but still in beta: gameplay, balance and persistence

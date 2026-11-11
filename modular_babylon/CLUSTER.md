@@ -87,7 +87,14 @@ ordinary upstream builds and runs Python/browser tests for PRs and pushes to
   `:unstable-<commit>` marker permits cleanup even after a cancelled run; all
   older marked unstable image versions are deleted after successful publishing.
 - Publishing release tag `1.0.0` attaches both `:1.0.0` and `:latest` to the
-  same image. Release tags are literal Docker tags; `v1.0.0` remains `:v1.0.0`.
+  same image. If the released commit already has an `:unstable-<commit>` image
+  (normally: the release is the latest default-branch commit), the release waits
+  for that commit's push run, then only retags that image instead of compiling
+  and building again. Tag changes of all runs share one concurrency group.
+- After a successful release, the workflow can trigger a Komodo procedure (for
+  example a redeploy) through its GitLab-style webhook. Set the action secrets
+  `KOMODO_WEBHOOK_URL` (listener URL ending in `/<default branch>`) and
+  `KOMODO_WEBHOOK_SECRET`; without both the step is skipped. Release tags are literal Docker tags; `v1.0.0` remains `:v1.0.0`.
 - Main/default-branch runs cancel older runs in their concurrency group. PRs
   are grouped by ref; release runs use separate groups and are not cancelled.
 - Cleanup never deletes versions with `latest`, a release tag, or any other

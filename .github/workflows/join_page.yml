@@ -1,0 +1,83 @@
+# Publishes tools/babylon/join/index.html as join/ on GitHub Pages: a page that
+# opens the server's byond:// link, for the README's "click to join" link.
+#
+# The gh-pages branch is shared with generate_documentation.yml (which replaces
+# the branch but keeps join/ via clean-exclude) and atlas_map_diff.yml. All
+# three publish in the gen-docs concurrency group, so no update is lost.
+name: Join page
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - tools/babylon/join/**
+      - .github/workflows/join_page.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Folder on the gh-pages branch. generate_documentation.yml keeps it when it
+  # replaces the documentation, so change both together.
+  SITE_DIR: join
+
+jobs:
+  publish:
+    name: Update the gh-pages branch and deploy it
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: gen-docs
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: source
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          path: site
+      - name: Publish the join page
+        working-directory: site
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4 5; do
+            git fetch --depth 1 origin gh-pages
+            git reset --hard FETCH_HEAD
+            rm -rf "$SITE_DIR"
+            mkdir -p "$SITE_DIR"
+            cp -R ../source/tools/babylon/join/. "$SITE_DIR/"
+            git add --all -- "$SITE_DIR"
+            if git diff --cached --quiet; then exit 0; fi
+            git commit --quiet -m "Join page: update from ${GITHUB_SHA::7}"
+            if git push origin HEAD:gh-pages; then exit 0; fi
+            sleep $((attempt * 5))
+          done
+          echo "::error::Could not update gh-pages after 5 attempts"
+          exit 1
+      # Pages is deployed from this artifact (Settings > Pages > Source: GitHub
+      # Actions), like the other two workflows on this branch.
+      - uses: actions/configure-pages@v6
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+          include-hidden-files: true
+      - name: Deploy the complete gh-pages branch to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
+        with:
+          timeout: 2400000
+          error_count: 10

@@ -232,7 +232,7 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    # Shared with generate_documentation.yml, which replaces the branch with a
+    # Shared with join_page.yml and generate_documentation.yml, which replaces the branch with a
     # forced push; previews pushed while it runs would otherwise be lost. It also
     # keeps the deployments of the whole branch in order.
     concurrency:
