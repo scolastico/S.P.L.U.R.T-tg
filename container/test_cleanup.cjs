@@ -13,11 +13,18 @@ async function check(organization) {
   ];
   const github = {
     rest: { repos: { get: async () => ({ data: { owner: { type: organization ? 'Organization' : 'User' } } }) } },
-    paginate: async (route) => {
+    paginate: async (route, args) => {
       assert.match(route, organization ? /^GET \/orgs\// : /^GET \/users\//);
+      assert.equal(args.per_page, 100);
       return versions;
     },
-    request: async (route, args) => deleted.push(args.package_version_id),
+    request: async (route, args) => {
+      assert.equal(route, 'DELETE ' + (organization ? '/orgs/{owner}' : '/users/{owner}')
+        + '/packages/container/{package_name}/versions/{package_version_id}');
+      assert.deepEqual(args, { owner: 'owner', package_name: 'babylon13', package_version_id: 1 },
+        'DELETE must contain only route parameters, with no pagination or JSON body');
+      deleted.push(args.package_version_id);
+    },
   };
   await cleanup({ github, context: { repo: { owner: 'owner', repo: 'Babylon13' } },
     core: { info() {} }, currentDigest: digest });

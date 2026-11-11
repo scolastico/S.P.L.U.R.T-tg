@@ -7,8 +7,8 @@ module.exports = async function ({ github, context, core, currentDigest }) {
   const organization = repository.data.owner.type === 'Organization';
   const prefix = organization ? '/orgs/{owner}' : '/users/{owner}';
   const route = prefix + '/packages/container/{package_name}/versions';
-  const options = { owner, package_name: context.repo.repo.toLowerCase(), per_page: 100 };
-  const versions = await github.paginate('GET ' + route, options);
+  const options = { owner, package_name: context.repo.repo.toLowerCase() };
+  const versions = await github.paginate('GET ' + route, { ...options, per_page: 100 });
   for (const version of versions) {
     if (version.name === currentDigest) continue;
     const tags = version.metadata?.container?.tags || [];
