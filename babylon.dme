@@ -19,6 +19,7 @@
 #include "modular_babylon/code/lore.dm"
 #include "modular_babylon/code/vault.dm"
 #include "modular_babylon/code/survival.dm"
+#include "modular_babylon/code/sfw.dm"
 #ifdef BABYLON_TESTING
 #include "modular_babylon/code/testing.dm"
 #endif

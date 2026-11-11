@@ -10,6 +10,14 @@ separate Interlink/cafe map loader. Builder behavior, restricted observer
 interfaces and lore papers live under `modular_babylon`; lore placements are
 applied to the fresh upstream map at preparation time, without a copied map.
 
+Babylon is safe for work. `modular_babylon/code/sfw.dm` disables inherited
+ERP content through proc and var overrides only (no upstream edits): it locks
+`DISABLE_ERP_PREFERENCES`/`DISABLE_LEWD_ITEMS` on, filters lewd interactions,
+emotes, research designs and chemistry, removes the Plug13 verb, and opens the
+new Babylon-only `tgui/packages/tgui/interfaces/BabylonInteraction.tsx`
+instead of SPLURT's `MobInteraction` window. After an upstream merge, re-check
+newly added lewd interactions, designs, reactions and verbs against it.
+
 | Upstream file | Purpose |
 | --- | --- |
 | `code/controllers/master.dm` | Wait for restoration and final subsystem initialization before physics runs; support the isolated-test hold parameter. |

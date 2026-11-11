@@ -112,6 +112,9 @@ def main():
         for key in ("spawners_hidden", "minigames_hidden", "dnr_present", "reenter_present", "return_before_destruct"):
             assert experience[key], experience
         assert experience["lore_papers"] == expected_lore, experience
+        sfw = call(run, "session", "test_sfw_content")
+        sfw = {entry["entry"]: entry["value"] for entry in sfw["entries"]}
+        assert sfw and all(sfw.values()), sfw
         player = call(run, "session", "ensure_player", ["smokefriend"])
         friend_ref = player["ref"]
         fields = debug(run, "inspect", dict(target=friend_ref, vars=["builder"]))["vars"]

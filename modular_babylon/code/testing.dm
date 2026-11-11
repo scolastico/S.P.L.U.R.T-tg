@@ -206,3 +206,46 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 /datum/material_container/proc/babylon_test_invalid_material()
 	materials[null] = 0
 	return TRUE
+
+// Guards the safe-for-work build (sfw.dm): every check must be TRUE.
+/datum/babylon_save/proc/test_sfw_content()
+	var/list/result = list()
+	result["erp_preferences_disabled"] = !!CONFIG_GET(flag/disable_erp_preferences)
+	result["lewd_items_disabled"] = !!CONFIG_GET(flag/disable_lewd_items)
+	var/mob/living/basic/drone/babylon/replacement/first = new(respawn_turf)
+	var/mob/living/basic/mouse/second = new(respawn_turf)
+	var/datum/component/interactable/menu = second.GetComponent(/datum/component/interactable)
+	menu.build_interactions_list()
+	var/listed_erp = FALSE
+	for(var/datum/interaction/interaction as anything in menu.interactions)
+		if(babylon_interaction_is_erp(interaction))
+			listed_erp = TRUE
+	result["no_erp_interactions_listed"] = !listed_erp
+	var/allowed_erp = FALSE
+	for(var/name in SSinteractions.interactions)
+		var/datum/interaction/interaction = SSinteractions.interactions[name]
+		if(babylon_interaction_is_erp(interaction) && menu.can_interact(interaction, first))
+			allowed_erp = TRUE
+	result["no_erp_interactions_allowed"] = !allowed_erp
+	result["no_erp_ui_data"] = !("genitals" in menu.ui_data(first)) && !length(menu.ui_static_data(first))
+	var/datum/emote/living/lewd/lewdmoan/emote = new
+	result["no_lewd_emotes"] = !emote.can_run_emote(first, intentional = TRUE)
+	qdel(emote)
+	qdel(second)
+	qdel(first)
+	var/erp_designs = FALSE
+	for(var/node_id in SSresearch.techweb_nodes)
+		var/datum/techweb_node/node = SSresearch.techweb_nodes[node_id]
+		for(var/design_id in node.design_ids)
+			if(design_id in babylon_erp_design_ids())
+				erp_designs = TRUE
+	result["no_erp_designs"] = !erp_designs
+	var/erp_reactions = FALSE
+	for(var/reaction_path in GLOB.chemical_reactions_list)
+		if(babylon_reaction_is_erp(GLOB.chemical_reactions_list[reaction_path]))
+			erp_reactions = TRUE
+	result["no_erp_reactions"] = !erp_reactions
+	var/obj/item/toy/plush/bubbleplush/plush = new(respawn_turf)
+	result["no_plush_toy_slot"] = !plush.plappable && !plush.atom_storage
+	qdel(plush)
+	return result

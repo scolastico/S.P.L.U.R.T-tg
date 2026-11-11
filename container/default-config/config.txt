@@ -3,3 +3,6 @@
 $include comms.txt
 FORBID_STATION_TRAITS
 GITHUBURL https://github.com/scolastico/babylon13
+# Babylon is safe for work; the build also forces these on.
+DISABLE_ERP_PREFERENCES
+DISABLE_LEWD_ITEMS
