@@ -4,6 +4,9 @@
 or connect BYOND to `byond://62.84.176.153:1361`
 (server `62.84.176.153`, lobby port `1361`).
 
+**Community:** join our [**Discord**](https://discord.gg/25CanT4sXW) for help,
+bug reports, suggestions, server status and people to play with.
+
 > **Beta — expect refinement and tuning.**
 > Babylon13 is playable, but still in beta: gameplay, balance and persistence
 > will keep being refined and tuned, and things can still break. Keep that in
