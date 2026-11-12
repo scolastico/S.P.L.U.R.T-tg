@@ -36,6 +36,11 @@
 		settings += "[button].anchor1=[(index - 1) * 25],0"
 		settings += "[button].anchor2=[index * 25],100"
 	winset(src, null, jointext(settings, ";"))
+	// The game window (and the Windows taskbar) shows the Babylon drone instead of SPLURT's icon.
+	// The shared skin.dmf is not changed; the file reference compiles the icon into the .rsc.
+	// A call of its own, so an icon the client rejects cannot undo the top bar changes.
+	var/static/window_icon = 'modular_babylon/icons/babylon13_64.png'
+	winset(src, "mainwindow", "icon=\ref[window_icon]")
 
 /mob/Login()
 	. = ..()

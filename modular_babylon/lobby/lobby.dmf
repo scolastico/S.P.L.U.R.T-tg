@@ -5,6 +5,7 @@ window "lobby"
 		is-default = true
 		statusbar = false
 		title = "Babylon 13"
+		icon = 'modular_babylon\\icons\\babylon13_64.png'
 		saved-params = "pos;size;is-maximized"
 	elem "browser"
 		type = BROWSER
