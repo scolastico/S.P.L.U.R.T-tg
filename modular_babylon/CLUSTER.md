@@ -67,8 +67,8 @@ connected.
 The status line is the HTML template `BABYLON_HUB_STATUS`, so links and wording
 can be changed without a rebuild. Placeholders: `{name}` (`BABYLON_SERVER_NAME`),
 `{players}` (total), `{lobby_players}`, `{world_players}`, `{running_worlds}`,
-`{running_worlds_label}` (for example "2 running worlds", or "2 running worlds (+1)"
-while an admin world runs), `{admin_worlds}`,
+`{running_worlds_label}` (for example "2 running worlds"; both count admin worlds
+like any other), `{admin_worlds}` (how many of them are admin worlds),
 `{max_running_worlds}` and `{address}` (the lobby's byond:// address). The
 default is
 `<b>{name}</b> &#8212; persistent station building<br>Players: <b>{players}</b> ({world_players} in {running_worlds_label}, {lobby_players} in the lobby)`.
@@ -241,7 +241,7 @@ lobby before stopping the cluster processes. Do not kill a child to save it.
 - Limits configure total running worlds, players per world, worlds per owner,
   and running worlds per owner. Worlds owned by an admin (`BABYLON_ADMINS`) do
   not count towards the global running-world limit; they only need a free port
-  and are shown separately, e.g. "2/4 (+1)". A member or admin starting another person's
+  and are shown separately on the Discord status, e.g. "2/4 (+1)"; the hub lists them as running worlds. A member or admin starting another person's
   world uses that world's owner quota. Admins bypass join capacity so they can
   investigate a full world; world creation/start quotas still apply.
 - Concurrent join requests share one startup. Settings are validated by the

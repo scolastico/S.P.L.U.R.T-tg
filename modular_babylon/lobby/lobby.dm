@@ -76,16 +76,17 @@ var/global/list/lobby_config
 	game_state = 0
 
 /// Fills the BABYLON_HUB_STATUS template (see CLUSTER.md for the placeholders).
-/// Admin worlds run outside the limit and are shown as "(+1)" after the running worlds.
+/// Admin worlds run outside the limit but are listed as ordinary running worlds here.
 /world/proc/render_hub_status(in_lobby, in_worlds, running, admin_worlds = 0)
+	var/all_running = running + admin_worlds
 	var/text = lobby_config["hub_status"] || "<b>{name}</b>"
 	var/list/values = list(
 		"{name}" = html_encode(name),
 		"{players}" = "[in_lobby + in_worlds]",
 		"{lobby_players}" = "[in_lobby]",
 		"{world_players}" = "[in_worlds]",
-		"{running_worlds}" = "[running]",
-		"{running_worlds_label}" = "[running] running world[running == 1 ? "" : "s"][admin_worlds ? " (+[admin_worlds])" : ""]",
+		"{running_worlds}" = "[all_running]",
+		"{running_worlds_label}" = "[all_running] running world[all_running == 1 ? "" : "s"]",
 		"{admin_worlds}" = "[admin_worlds]",
 		"{max_running_worlds}" = "[lobby_config["max_running_worlds"]]",
 		"{address}" = html_encode("[lobby_config["address"]]"),
