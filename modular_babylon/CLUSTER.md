@@ -94,13 +94,15 @@ are set; `BABYLON_DISCORD_FEATURES` picks what it does:
 | `logs` | Member, message, voice and moderation logs, each in its own channel (unset channels are skipped). | log channels |
 | `status` | A status message (players, running worlds; private worlds stay anonymous), updated every minute and marked offline on shutdown. | `_STATUS_CHANNEL` |
 | `gamelog` | Every `[supervisor]` log line, batched into a channel. | `_GAME_LOG_CHANNEL` |
-| `ahelp` | Every adminhelp from a world becomes a message with a thread in a staff channel: the player's messages and replies, and in-game admins' answers. Staff answer with the "Reply" button; the player gets it as an admin PM (shown as "Administrator" unless `SHOW_IRC_NAME` is set). Tickets are closed in game. | `_AHELP_CHANNEL`, `_STAFF_ROLES` |
+| `ahelp` | Every adminhelp from a world becomes a message with a thread in a staff channel: the player's messages and replies, and in-game admins' answers. Staff answer with the "Reply" button; the player gets it as an admin PM (shown as "Administrator" unless `SHOW_IRC_NAME` is set). "Close ticket" closes it in the world and archives the thread. The player is told "Created an adminhelp for you." and, if any member of `_AHELP_ROLES` (default: the staff roles) is online on Discord, how many; that count needs the bot's Presence Intent, without it the bot runs and the count is left out. | `_AHELP_CHANNEL`, `_STAFF_ROLES`, optional `_AHELP_ROLES` |
 | `tickets` | An "Open a ticket" button in a read-only channel opens a private channel for the member and `BABYLON_DISCORD_STAFF_ROLES`. Creator and staff can add people; closing it sends a `.txt` transcript to the creator by DM and to the ticket log. | `_TICKET_PANEL_CHANNEL`, `_TICKET_LOG_CHANNEL`, `_TICKET_CATEGORY`, `_STAFF_ROLES` |
 
 `/status` is always available. In the developer portal, enable the
-**Server Members Intent** for `link` and `logs`, and the **Message Content
-Intent** for `logs`; without them Discord refuses the connection and the bot
-stays off (the game keeps running). The bot's role must be above every role it
+**Server Members Intent** for `link`, `logs` and `ahelp`, and the **Message
+Content Intent** for `logs`; without them Discord refuses the connection and the
+bot stays off (the game keeps running). The **Presence Intent** is optional: with
+`ahelp`, the bot asks for it to count online admins and runs without the count
+when it is not enabled. The bot's role must be above every role it
 assigns. Voice rooms and open tickets are remembered in the data volume.
 
 Linking: **Link Discord** in the lobby shows a one-time code (valid 10

@@ -156,6 +156,8 @@ def discord_settings(env, address='', data_directory='/data'):
         'self_roles': id_list(env, 'BABYLON_DISCORD_SELF_ROLES'),
         'color_roles': id_list(env, 'BABYLON_DISCORD_COLOR_ROLES'),
         'staff_roles': id_list(env, 'BABYLON_DISCORD_STAFF_ROLES'),
+        # Roles counted as admins for the in-game "admins online" ahelp notice (default: staff).
+        'ahelp_roles': id_list(env, 'BABYLON_DISCORD_AHELP_ROLES'),
         'ticket_category': snowflake(env, 'BABYLON_DISCORD_TICKET_CATEGORY'),
         'linked_role': snowflake(env, 'BABYLON_DISCORD_LINKED_ROLE'),
         'voice_room_name': env.get('BABYLON_DISCORD_VOICE_ROOM_NAME', "{name}'s room")[:90] or "{name}'s room",
@@ -170,6 +172,7 @@ def discord_settings(env, address='', data_directory='/data'):
                                                   and {'ticket_panel', 'ticket_log'} <= set(settings['channels'])):
         raise ValueError('The tickets feature needs BABYLON_DISCORD_TICKET_PANEL_CHANNEL, _TICKET_LOG_CHANNEL, '
                          '_TICKET_CATEGORY and _STAFF_ROLES')
+    settings['ahelp_roles'] = settings['ahelp_roles'] or settings['staff_roles']
     settings['link'] = 'link' in settings['features']
     if (settings['require_create'] or settings['require_join']) and not settings['link']:
         raise ValueError('Requiring Discord needs the bot (BABYLON_DISCORD_TOKEN) with the link feature')

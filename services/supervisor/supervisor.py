@@ -191,6 +191,9 @@ class Driver:
     def ahelp_reply(self, run, payload):
         return topic(run["port"], run["secret"], "ahelp_reply", payload)
 
+    def ahelp_close(self, run, payload):
+        return topic(run["port"], run["secret"], "ahelp_close", payload)
+
 
 class Supervisor:
     def __init__(self, config, driver=None, clock=time.time):
@@ -239,6 +242,8 @@ class Supervisor:
         self.discord_link_changed = None
         # Called with each adminhelp event from a child world (the Discord bot relays them).
         self.ahelp_relay = None
+        # Returns how many admins are online on Discord (or None), for the player's ahelp notice.
+        self.ahelp_admins_online = None
         self.checkpoints = Checkpoints(config["data_directory"], config.get("kept_save_points_per_world", 4))
         # Running children are reconciled by tick; stopped worlds have no writers.
         for row in self.db.execute("SELECT id FROM worlds WHERE id NOT IN (SELECT world FROM runs)"):
@@ -459,15 +464,33 @@ class Supervisor:
                      key=str(data.get("key") or data.get("ckey") or "")[:64],
                      sender=str(data.get("sender") or "")[:64], message=plain_text(str(data.get("message", "")))[:4000])
         log("Adminhelp %s #%s from %s in %s" % (kind, event["ticket"], event["ckey"], event["world"]))
+        result = {"ok": True, "relayed": False}
         callback = self.ahelp_relay
-        if not callback:
-            return {"ok": True, "relayed": False}
-        try:
-            callback(event)
-        except Exception as error:
-            log(f"Relaying an adminhelp failed: {error}")
-            return {"ok": True, "relayed": False}
-        return {"ok": True, "relayed": True}
+        if callback:
+            try:
+                callback(event)
+                result["relayed"] = True
+            except Exception as error:
+                log(f"Relaying an adminhelp failed: {error}")
+        if kind == "new" and self.ahelp_admins_online:
+            try:
+                online = self.ahelp_admins_online()
+                if isinstance(online, int) and online > 0:
+                    result["admins_online"] = online
+            except Exception as error:
+                log(f"Counting online admins failed: {error}")
+        return result
+
+    def ahelp_close(self, run_id, ticket, sender):
+        """Closes a world's adminhelp ticket from outside the game."""
+        with self.lock:
+            run = self.row("SELECT * FROM runs WHERE id=?", (run_id,))
+        if not run or run["state"] != "running":
+            raise Denied("That world is no longer running")
+        result = self.driver.ahelp_close(dict(run), {"ticket": int(ticket), "sender": str(sender)[:64]})
+        if not result.get("ok"):
+            raise Denied(str(result.get("result") or result.get("error") or "The ticket could not be closed"))
+        return result
 
     def ahelp_reply(self, run_id, target, sender, message):
         """A staff reply from outside the game, delivered as an admin PM in that world."""

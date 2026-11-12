@@ -38,6 +38,12 @@ class FakeDriver:
             return {"ok": 0, "result": "The player is no longer in this world"}
         return {"ok": 1, "result": "Message Successful"}
 
+    def ahelp_close(self, run, payload):
+        self.closed = getattr(self, "closed", []) + [(run["id"], payload)]
+        if payload["ticket"] == 4:
+            return {"ok": 0, "result": "That ticket is already closed"}
+        return {"ok": 1, "result": "Closed"}
+
 
 class Policies(unittest.TestCase):
     def setUp(self):

@@ -42,6 +42,9 @@
 		if("ahelp_reply")
 			var/list/payload = json_decode(input["payload"] || "{}")
 			return babylon_discord_ahelp_reply(payload["ckey"], payload["sender"], payload["message"])
+		if("ahelp_close")
+			var/list/payload = json_decode(input["payload"] || "{}")
+			return babylon_discord_ahelp_close(payload["ticket"], payload["sender"])
 	return list("error" = "Unknown action")
 
 /datum/babylon_save/proc/stop_world()

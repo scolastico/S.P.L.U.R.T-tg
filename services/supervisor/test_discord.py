@@ -142,6 +142,19 @@ class DiscordLinks(unittest.TestCase):
         self.s.ahelp_relay = None
         self.assertFalse(self.s.relay_ahelp(run["id"], run["secret"], event)["relayed"])
 
+    def test_new_ahelps_report_online_admins_and_tickets_close_through_the_world(self):
+        run = self.running_world()
+        self.s.ahelp_admins_online = lambda: 2
+        event = dict(kind="new", ticket="3", ckey="someone", key="Someone", message="Help")
+        self.assertEqual(self.s.relay_ahelp(run["id"], run["secret"], event)["admins_online"], 2)
+        self.assertNotIn("admins_online", self.s.relay_ahelp(run["id"], run["secret"], dict(event, kind="message")))
+        self.s.ahelp_admins_online = lambda: 0
+        self.assertNotIn("admins_online", self.s.relay_ahelp(run["id"], run["secret"], event))
+        self.assertTrue(self.s.ahelp_close(run["id"], 3, "Mod")["ok"])
+        self.assertEqual(self.s.driver.closed[-1], (run["id"], {"ticket": 3, "sender": "Mod"}))
+        with self.assertRaisesRegex(Denied, "already closed"):
+            self.s.ahelp_close(run["id"], 4, "Mod")
+
     def test_ahelp_replies_reach_only_a_running_world(self):
         run = self.running_world()
         self.assertTrue(self.s.ahelp_reply(run["id"], "Some Player", "Mod", "On my way")["ok"])
@@ -317,6 +330,7 @@ class BotHelpers(unittest.TestCase):
         button = rows[0]["components"][0]
         self.assertEqual(button["custom_id"], "babylon:ahelp:reply:" + "r" * 32 + ":someplayer")
         self.assertLessEqual(len("babylon:ahelp:reply:" + "r" * 32 + ":" + "x" * 30), 100)
+        self.assertEqual(rows[0]["components"][1]["custom_id"], "babylon:ahelp:close:" + "r" * 32 + ":7")
         embed, rows = self.bot.ahelp_entry(dict(event, kind="admin", sender="AdminKey"))
         self.assertEqual(rows, [])
         self.assertIn("AdminKey", embed.description)
@@ -327,17 +341,43 @@ class BotHelpers(unittest.TestCase):
 
         class Http:
             async def request(self, route, json=None):
+                await asyncio.sleep(0)  # a real request yields to other events
                 requests.append((route.method, route.path, route.channel_id))
                 return {"id": str(100 + len(requests))}
 
-        client = types.SimpleNamespace(http=Http(), ahelp_threads={}, channel=lambda key: types.SimpleNamespace(id=5))
+        client = types.SimpleNamespace(http=Http(), ahelp_threads={}, ahelp_player_threads={}, ahelp_locks={},
+                                       channel=lambda key: types.SimpleNamespace(id=5))
         client.raw_message = types.MethodType(self.bot.BabylonBot.raw_message, client)
         event = dict(run="run", world="World", kind="new", ticket=7, ckey="someplayer", key="SomePlayer",
                      sender="", message="Help")
-        for kind in ("new", "message", "admin"):
-            asyncio.run(self.bot.BabylonBot.post_ahelp(client, dict(event, kind=kind)))
+
+        async def burst():
+            # A new ticket's events arrive together; they must not create two threads.
+            await asyncio.gather(*(self.bot.BabylonBot.post_ahelp(client, dict(event, kind=kind))
+                                   for kind in ("new", "message", "admin")))
+
+        asyncio.run(burst())
         self.assertEqual([(m, c) for m, _, c in requests], [("POST", 5), ("POST", 5), ("POST", 102), ("POST", 102)])
         self.assertTrue(requests[1][1].endswith("/threads"))
+        self.assertEqual(client.ahelp_player_threads, {("run", "someplayer"): 102})
+
+    def test_online_admins_are_counted_from_the_ahelp_roles_and_presence(self):
+        import asyncio
+        discord = self.bot.discord
+        role = types.SimpleNamespace(id=9)
+
+        def member(status, roles=(role,), bot=False):
+            return types.SimpleNamespace(status=status, roles=list(roles), bot=bot)
+
+        guild = types.SimpleNamespace(members=[member(discord.Status.online), member(discord.Status.idle),
+                                               member(discord.Status.offline), member(discord.Status.online, roles=()),
+                                               member(discord.Status.online, bot=True)])
+        client = types.SimpleNamespace(guild=guild, settings={"ahelp_roles": [9]},
+                                       intents=types.SimpleNamespace(presences=True))
+        count = self.bot.BabylonBot.count_online_admins
+        self.assertEqual(asyncio.run(count(client)), 2)
+        client.intents.presences = False
+        self.assertIsNone(asyncio.run(count(client)))
 
     def test_player_text_cannot_format_or_link_in_discord(self):
         bait = "[Free Nitro](https://example.org) **bold**"

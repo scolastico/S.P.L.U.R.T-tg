@@ -30,8 +30,9 @@ FEATURES = ("link", "roles", "voice", "logs", "status", "gamelog", "tickets")
 ROLE_BUTTON = "babylon:role:"
 COLOR_BUTTON = "babylon:color:"
 TICKET_OPEN, TICKET_ADD, TICKET_CLOSE = "babylon:ticket:open", "babylon:ticket:add", "babylon:ticket:close"
-# babylon:ahelp:reply:<run id>:<ckey>, at most 83 characters (Discord allows 100).
-AHELP_REPLY = "babylon:ahelp:reply:"
+# babylon:ahelp:reply:<run id>:<ckey> and babylon:ahelp:close:<run id>:<ticket>, at most 83
+# characters (Discord allows 100).
+AHELP_REPLY, AHELP_CLOSE = "babylon:ahelp:reply:", "babylon:ahelp:close:"
 VOICE_KICK, VOICE_BAN, VOICE_UNBAN = "babylon:voice:kick", "babylon:voice:ban", "babylon:voice:unban"
 VOICE_LIMIT, VOICE_UNLIMIT = "babylon:voice:limit", "babylon:voice:unlimit"
 VOICE_RENAME, VOICE_TRANSFER = "babylon:voice:rename", "babylon:voice:transfer"
@@ -109,17 +110,20 @@ def ahelp_entry(event):
         embed = discord.Embed(title=clip(f"🆘 Adminhelp {number} from {event['key'] or event['ckey']}", 256), color=AMBER, description=text)
         embed.add_field(name="World", value=clip(md(event["world"]), 1024))
         embed.add_field(name="Player", value=f"`{event['ckey']}`")
-        embed.set_footer(text="Reply with the button; the player gets it as an admin PM. Tickets are closed in game.")
+        embed.set_footer(text="Reply with the button; the player gets it as an admin PM. The conversation continues in the thread.")
     elif kind == "admin":
         embed = discord.Embed(color=TEAL, description=f"🛡️ **{md(event['sender'] or 'An admin')}** (in game) → **{who}**: {text}")
     else:
         label = "replied" if kind == "reply" else "wrote"
         embed = discord.Embed(color=AMBER, description=f"💬 **{who}** {label}: {text}")
-    rows = []
+    buttons = []
     if kind != "admin" and event["ckey"]:
-        rows = [{"type": 1, "components": [{"type": 2, "style": 1, "label": "Reply", "emoji": {"name": "📨"},
-                                            "custom_id": f"{AHELP_REPLY}{event['run']}:{event['ckey']}"}]}]
-    return embed, rows
+        buttons.append({"type": 2, "style": 1, "label": "Reply", "emoji": {"name": "📨"},
+                        "custom_id": f"{AHELP_REPLY}{event['run']}:{event['ckey']}"})
+    if kind != "admin" and event["ticket"] is not None:
+        buttons.append({"type": 2, "style": 4, "label": "Close ticket", "emoji": {"name": "🔒"},
+                        "custom_id": f"{AHELP_CLOSE}{event['run']}:{event['ticket']}"})
+    return embed, ([{"type": 1, "components": buttons}] if buttons else [])
 
 
 def chunk_lines(lines, limit=1900):
@@ -137,7 +141,7 @@ def chunk_lines(lines, limit=1900):
 
 
 class BabylonBot(discord.Client):
-    def __init__(self, settings, supervisor):
+    def __init__(self, settings, supervisor, presences=False):
         self.settings = settings
         self.features = set(settings["features"])
         self.supervisor = supervisor
@@ -145,7 +149,9 @@ class BabylonBot(discord.Client):
         intents.guilds = True
         intents.voice_states = bool(self.features & {"voice", "logs"})
         # Privileged: enable "Server Members Intent" in the developer portal.
-        intents.members = bool(self.features & {"link", "logs"})
+        intents.members = bool(self.features & {"link", "logs", "ahelp"})
+        # Privileged: "Presence Intent", to count online admins for the in-game ahelp notice.
+        intents.presences = presences
         if "logs" in self.features:
             # Privileged: "Message Content Intent", for the content of edited/deleted messages.
             intents.guild_messages = True
@@ -159,8 +165,12 @@ class BabylonBot(discord.Client):
         self.voice_rooms = self.load_voice_rooms()
         self.voice_lock = asyncio.Lock()
         self.status_message = None
-        # (run id, ticket number or ckey) -> thread id of that adminhelp in the ahelp channel.
+        # (run id, ticket number or ckey) -> thread id of that adminhelp in the ahelp channel, and
+        # (run id, ckey) -> the player's latest thread, where replies from the Reply button go.
         self.ahelp_threads = {}
+        self.ahelp_player_threads = {}
+        # One lock per ticket: two events of a new ticket must not both create a thread.
+        self.ahelp_locks = {}
         self.ticket_file = Path(settings["data_directory"]) / "discord-tickets.json"
         self.tickets = self.load_tickets()
         self.ticket_lock = asyncio.Lock()
@@ -198,6 +208,7 @@ class BabylonBot(discord.Client):
             self.supervisor.discord_link_changed = self.link_changed_threadsafe
         if "ahelp" in self.features:
             self.supervisor.ahelp_relay = self.ahelp_threadsafe
+            self.supervisor.ahelp_admins_online = self.admins_online_threadsafe
             self.supervisor.discord_membership = self.is_member
 
     async def on_ready(self):
@@ -291,8 +302,8 @@ class BabylonBot(discord.Client):
         if interaction.type != discord.InteractionType.component:
             return
         custom_id = (interaction.data or {}).get("custom_id", "")
-        if "ahelp" in self.features and custom_id.startswith(AHELP_REPLY):
-            await self.ahelp_button(interaction, custom_id[len(AHELP_REPLY):])
+        if "ahelp" in self.features and custom_id.startswith((AHELP_REPLY, AHELP_CLOSE)):
+            await self.ahelp_button(interaction, custom_id)
             return
         if "tickets" in self.features and custom_id in (TICKET_OPEN, TICKET_ADD, TICKET_CLOSE):
             await self.ticket_button(interaction, custom_id)
@@ -706,6 +717,18 @@ class BabylonBot(discord.Client):
     def ahelp_threadsafe(self, event):
         asyncio.run_coroutine_threadsafe(self.post_ahelp(event), self.loop_ref)
 
+    def admins_online_threadsafe(self):
+        return asyncio.run_coroutine_threadsafe(self.count_online_admins(), self.loop_ref).result(timeout=3)
+
+    async def count_online_admins(self):
+        """Members of the ahelp roles who are not offline; None without presence data."""
+        guild = self.guild
+        roles = set(self.settings.get("ahelp_roles") or [])
+        if not guild or not roles or not self.intents.presences:
+            return None
+        return sum(1 for member in guild.members if not member.bot and member.status != discord.Status.offline
+                   and any(role.id in roles for role in member.roles))
+
     async def post_ahelp(self, event):
         """One message with a thread per ticket; later events of that ticket go into the thread."""
         channel = self.channel("ahelp")
@@ -714,43 +737,83 @@ class BabylonBot(discord.Client):
         embed, rows = ahelp_entry(event)
         payload = {"embeds": [embed.to_dict()], "components": rows}
         key = (event["run"], event["ticket"] if event["ticket"] is not None else event["ckey"])
-        try:
-            thread_id = self.ahelp_threads.get(key)
-            if thread_id:
-                await self.raw_message(thread_id, payload)
-                return
-            message = await self.raw_message(channel.id, payload)
-            route = discord.http.Route("POST", "/channels/{channel_id}/messages/{message_id}/threads",
-                                       channel_id=channel.id, message_id=message["id"])
-            number = f"#{event['ticket']}" if event["ticket"] is not None else "PM"
-            thread = await self.http.request(route, json={"name": clip(f"Ahelp {number} {event['ckey']} - {event['world']}", 100),
-                                                          "auto_archive_duration": 1440})
-            self.ahelp_threads[key] = int(thread["id"])
-        except discord.HTTPException as error:
-            log(f"Posting an adminhelp failed: {error}")
+        async with self.ahelp_locks.setdefault(key, asyncio.Lock()):
+            try:
+                thread_id = self.ahelp_threads.get(key)
+                if not thread_id:
+                    message = await self.raw_message(channel.id, payload)
+                    route = discord.http.Route("POST", "/channels/{channel_id}/messages/{message_id}/threads",
+                                               channel_id=channel.id, message_id=message["id"])
+                    number = f"#{event['ticket']}" if event["ticket"] is not None else "PM"
+                    thread = await self.http.request(route, json={"name": clip(f"Ahelp {number} {event['ckey']} - {event['world']}", 100),
+                                                                  "auto_archive_duration": 1440})
+                    thread_id = self.ahelp_threads[key] = int(thread["id"])
+                else:
+                    await self.raw_message(thread_id, payload)
+                if event["ckey"]:
+                    self.ahelp_player_threads[(event["run"], event["ckey"])] = thread_id
+            except discord.HTTPException as error:
+                log(f"Posting an adminhelp failed: {error}")
 
-    async def ahelp_button(self, interaction, target):
-        run_id, _, player = target.partition(":")
+    async def ahelp_log(self, interaction, thread_id, description):
+        """Records a staff action in the ticket's thread, wherever the button was clicked."""
+        embed = discord.Embed(color=TEAL, description=description)
+        try:
+            if thread_id:
+                await self.raw_message(thread_id, {"embeds": [embed.to_dict()]})
+            elif interaction.channel:
+                await interaction.channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+        except discord.HTTPException as error:
+            log(f"Logging an adminhelp action failed: {error}")
+
+    async def ahelp_button(self, interaction, custom_id):
         if not self.is_staff(interaction.user):
             await interaction.response.send_message("Only staff can answer adminhelps.", ephemeral=True)
             return
-        await interaction.response.send_modal(AhelpReplyModal(self, run_id, player))
+        if custom_id.startswith(AHELP_REPLY):
+            run_id, _, player = custom_id[len(AHELP_REPLY):].partition(":")
+            await interaction.response.send_modal(AhelpReplyModal(self, run_id, player))
+            return
+        run_id, _, ticket = custom_id[len(AHELP_CLOSE):].partition(":")
+        await self.close_ahelp(interaction, run_id, ticket)
+
+    async def ahelp_call(self, interaction, call, *args):
+        """Runs a supervisor call for a button; tells the clicker what failed and returns False."""
+        try:
+            await asyncio.to_thread(call, *args)
+            return True
+        except ValueError as error:
+            await interaction.followup.send(f"Not done: {error}", ephemeral=True)
+        except OSError:
+            await interaction.followup.send("Not done: the world did not answer.", ephemeral=True)
+        return False
 
     async def send_ahelp_reply(self, interaction, run_id, player, text):
         await interaction.response.defer(ephemeral=True, thinking=True)
         sender = interaction.user.display_name
-        try:
-            await asyncio.to_thread(self.supervisor.ahelp_reply, run_id, player, sender, text)
-        except ValueError as error:
-            await interaction.followup.send(f"Not delivered: {error}", ephemeral=True)
-            return
-        except OSError:
-            await interaction.followup.send("Not delivered: the world did not answer.", ephemeral=True)
+        if not await self.ahelp_call(interaction, self.supervisor.ahelp_reply, run_id, player, sender, text):
             return
         await interaction.followup.send("Delivered.", ephemeral=True)
-        if interaction.channel:
-            await interaction.channel.send(embed=discord.Embed(color=TEAL, description=f"📨 **{md(sender)}** → **{md(player)}**: {clip(md(text), 3500)}"),
-                                           allowed_mentions=discord.AllowedMentions.none())
+        await self.ahelp_log(interaction, self.ahelp_player_threads.get((run_id, player)),
+                             f"📨 **{md(sender)}** → **{md(player)}**: {clip(md(text), 3500)}")
+
+    async def close_ahelp(self, interaction, run_id, ticket):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        if not ticket.isdigit():
+            await interaction.followup.send("Not done: unknown ticket.", ephemeral=True)
+            return
+        sender = interaction.user.display_name
+        if not await self.ahelp_call(interaction, self.supervisor.ahelp_close, run_id, int(ticket), sender):
+            return
+        await interaction.followup.send("Ticket closed.", ephemeral=True)
+        thread_id = self.ahelp_threads.get((run_id, int(ticket)))
+        await self.ahelp_log(interaction, thread_id, f"🔒 Ticket #{ticket} closed by **{md(sender)}**.")
+        if thread_id:
+            try:
+                await self.http.request(discord.http.Route("PATCH", "/channels/{channel_id}", channel_id=thread_id),
+                                        json={"archived": True})
+            except discord.HTTPException as error:
+                log(f"Archiving an adminhelp thread failed: {error}")
 
     def ticket_of(self, member_id):
         return next((cid for cid, t in self.tickets["open"].items() if t["owner"] == member_id), None)
@@ -1025,6 +1088,8 @@ class BotHandle:
         self.supervisor = supervisor
         self.client = None
         self.stopping = False
+        # Asked for when ahelps are relayed; dropped if the portal does not allow it.
+        self.presences = "ahelp" in settings["features"]
         self.thread = threading.Thread(target=self.run, daemon=True, name="discord-bot")
 
     def start(self):
@@ -1034,7 +1099,7 @@ class BotHandle:
     def run(self):
         delay = 10
         while not self.stopping:
-            self.client = BabylonBot(self.settings, self.supervisor)
+            self.client = BabylonBot(self.settings, self.supervisor, presences=self.presences)
 
             async def main(client=self.client):
                 async with client:  # Closes the HTTP session on every exit path.
@@ -1044,6 +1109,11 @@ class BotHandle:
                 if self.stopping:
                     return
             except discord.PrivilegedIntentsRequired:
+                if self.presences:
+                    log("Discord rejected the Presence Intent; running without the online-admin count. "
+                        "Enable 'Presence Intent' for the bot in the developer portal to show it in game.")
+                    self.presences = False
+                    continue
                 log("Discord rejected the privileged intents. Enable 'Server Members Intent' and "
                     "'Message Content Intent' for the bot in the developer portal; the bot stays off.")
                 return
