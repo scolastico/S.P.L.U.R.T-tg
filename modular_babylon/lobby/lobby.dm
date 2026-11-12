@@ -9,8 +9,12 @@ var/global/list/lobby_config
 	view = 0
 	fps = 5
 	sleep_offline = 1
-	// Hidden until the lobby config opts in (BABYLON_HUB_LISTED).
-	visibility = 0
+	// BYOND only registers with the hub set at compile time, so hub is fixed here
+	// and, like upstream's update_hub_visibility(), listing is toggled through
+	// the password: a wrong one keeps the lobby off the hub until the lobby
+	// config opts in (BABYLON_HUB_LISTED).
+	hub = "Exadv1.spacestation13"
+	hub_password = "SORRYNOPASSWORD"
 
 /world/New()
 	..()
@@ -28,9 +32,9 @@ var/global/list/lobby_config
 		name = lobby_config["name"]
 	// Only the lobby is listed; child worlds run with -invisible and need a lobby ticket anyway.
 	if(lobby_config["hub_listed"])
-		hub = lobby_config["hub"]
+		if(lobby_config["hub"] && lobby_config["hub"] != hub)
+			hub = lobby_config["hub"]
 		hub_password = lobby_config["hub_password"]
-		visibility = 1
 	spawn(0)
 		while(1)
 			update_hub_status()
