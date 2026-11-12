@@ -44,8 +44,33 @@
 	var/static/window_icon = 'modular_babylon/icons/babylon13_64.png'
 	winset(src, "mainwindow", "icon=\ref[window_icon]")
 
+/mob
+	/// Babylon: the mob's name without its player's key, so the key is only ever added once.
+	var/babylon_base_name
+
+/// Drones, ghosts and showcase visitors show who controls them: "derelict drone (611) (Key)".
+/// Names that already contain the key (ghosts named after their player) stay as they are.
+/mob/proc/babylon_show_player_key()
+	if(!world.params["babylon-world"] || !key)
+		return
+	if(!istype(src, /mob/living/basic/drone) && !isobserver(src) && !istype(src, /mob/dead/babylon_visitor))
+		return
+	var/suffix = " ([key])"
+	if(!babylon_base_name)
+		babylon_base_name = name
+		// A name restored from a save may already end with this player's key.
+		var/cut = length(name) - length(suffix)
+		if(cut > 0 && copytext(name, cut + 1) == suffix)
+			babylon_base_name = copytext(name, 1, cut + 1)
+	var/shown = findtext(babylon_base_name, key) ? babylon_base_name : "[babylon_base_name][suffix]"
+	if(name == shown)
+		return
+	fully_replace_character_name(real_name, shown)
+	name = shown
+
 /mob/Login()
 	. = ..()
+	babylon_show_player_key()
 	remove_verb(src, list(
 		/mob/verb/opposing_force,
 		/mob/verb/request_internet_sound,

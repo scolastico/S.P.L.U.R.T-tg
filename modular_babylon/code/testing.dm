@@ -218,6 +218,14 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	GLOB.admin_datums -= "babylonsmokeadmin"
 	result["reply_needs_the_player"] = babylon_discord_ahelp_reply("babylonsmokeabsent", "Mod", "Hello")["result"] == "The player is no longer in this world"
 	result["ticket_commands_refused"] = !babylon_discord_ahelp_reply("babylonsmokeabsent", "Mod", "ticket close")["ok"]
+	var/mob/living/basic/drone/babylon/named = new(respawn_turf)
+	var/base = named.name
+	named.key = "Smoke Namer"
+	named.babylon_show_player_key()
+	named.babylon_show_player_key()
+	result["drone_shows_player_key"] = named.name == "[base] (Smoke Namer)"
+	named.key = null
+	qdel(named)
 	result["station_named_after_world"] = station_name() == world.params["babylon-name"]
 	var/build_commit = world.GetConfig("env", "BABYLON_COMMIT")
 	result["revision_from_build"] = build_commit ? GLOB.revdata.commit == build_commit : isnull(GLOB.revdata.commit)
