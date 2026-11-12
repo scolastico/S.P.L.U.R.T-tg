@@ -155,13 +155,21 @@ class BabylonBot(discord.Client):
             log(f"The bot is not on the configured guild {self.settings['guild_id']}; invite it first")
             return
         log(f"Connected as {self.user} to {guild.name} (features: {', '.join(sorted(self.features)) or 'none'})")
-        await self.send("bot_log", embed=discord.Embed(color=TEAL, description=f"🟢 Bot started. Features: {', '.join(sorted(self.features))}"))
-        if "voice" in self.features:
-            await self.cleanup_voice_rooms()
-        if "tickets" in self.features:
-            await self.ensure_ticket_panel()
         if "status" in self.features and not getattr(self, "status_task", None):
             self.status_task = self.loop_ref.create_task(self.status_loop())
+        # Each step runs on its own, so one failing step cannot keep the others from running.
+        steps = [("announce", self.send("bot_log", embed=discord.Embed(
+            color=TEAL, description=f"🟢 Bot started. Features: {', '.join(sorted(self.features))}")))]
+        if "voice" in self.features:
+            steps.append(("voice rooms", self.cleanup_voice_rooms()))
+        if "tickets" in self.features:
+            steps.append(("ticket panel", self.ensure_ticket_panel()))
+        for name, step in steps:
+            try:
+                await step
+            except Exception as error:
+                log(f"Startup step {name} failed: {error!r}")
+                await self.on_error(f"on_ready ({name})")
 
     async def on_error(self, event, *args, **kwargs):
         import traceback
@@ -617,14 +625,20 @@ class BabylonBot(discord.Client):
         try:
             async for message in channel.history(limit=20):
                 if message.author.id == self.user.id:
-                    await self.http.edit_message(channel.id, message.id, embeds=[embed.to_dict()], components=[view])
+                    await self.post_components(channel, embed, [view], message_id=message.id)
                     return
             await self.post_components(channel, embed, [view])
         except discord.HTTPException as error:
             log(f"Posting the ticket panel failed: {error}")
 
-    async def post_components(self, channel, embed, rows):
-        route = discord.http.Route("POST", "/channels/{channel_id}/messages", channel_id=channel.id)
+    async def post_components(self, channel, embed, rows, message_id=None):
+        """Post (or edit) a message with raw component rows. discord.py's own http helpers take
+        multipart parameters rather than keywords, so every raw message call goes through here."""
+        if message_id is None:
+            route = discord.http.Route("POST", "/channels/{channel_id}/messages", channel_id=channel.id)
+        else:
+            route = discord.http.Route("PATCH", "/channels/{channel_id}/messages/{message_id}",
+                                       channel_id=channel.id, message_id=message_id)
         await self.http.request(route, json={"embeds": [embed.to_dict()], "components": rows})
 
     def ticket_of(self, member_id):

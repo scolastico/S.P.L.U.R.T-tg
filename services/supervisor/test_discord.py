@@ -144,6 +144,40 @@ class BotHelpers(unittest.TestCase):
         self.assertIn("[attachment] log.txt https://cdn/log.txt", text)
         self.assertEqual(self.bot.ticket_slug("Some Body!!"), "some-body")
 
+    def ticket_panel_requests(self, history):
+        import asyncio
+        requests = []
+
+        class Http:
+            async def request(self, route, json=None):
+                requests.append((route.method, route.path, route.channel_id, json))
+
+        async def messages(limit):
+            for message in history:
+                yield message
+
+        channel = types.SimpleNamespace(id=5, history=messages)
+        client = types.SimpleNamespace(http=Http(), user=types.SimpleNamespace(id=1), channel=lambda name: channel)
+        client.post_components = types.MethodType(self.bot.BabylonBot.post_components, client)
+        asyncio.run(self.bot.BabylonBot.ensure_ticket_panel(client))
+        return requests
+
+    def test_ticket_panel_is_posted_once_and_edited_on_later_starts(self):
+        (method, path, channel, body), = self.ticket_panel_requests([])
+        self.assertEqual((method, path, channel), ("POST", "/channels/{channel_id}/messages", 5))
+        self.assertEqual(body["components"][0]["components"][0]["custom_id"], self.bot.TICKET_OPEN)
+        mine = types.SimpleNamespace(id=9, author=types.SimpleNamespace(id=1))
+        other = types.SimpleNamespace(id=8, author=types.SimpleNamespace(id=2))
+        (method, path, channel, body), = self.ticket_panel_requests([other, mine])
+        self.assertEqual((method, path), ("PATCH", "/channels/{channel_id}/messages/{message_id}"))
+
+    def test_raw_http_goes_through_request_only(self):
+        # discord.py's http helpers take multipart parameters; calling them with keywords
+        # fails at runtime only. Raw calls must use http.request with a Route.
+        import re
+        source = (Path(__file__).parent / "discord_bot.py").read_text()
+        self.assertEqual(set(re.findall(r"(?<!discord)\.http\.(\w+)\(", source)), {"request"})
+
 
 if __name__ == "__main__":
     unittest.main()
