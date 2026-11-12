@@ -119,6 +119,9 @@ jobs:
             # Publish the cleanup marker before moving the public unstable tag.
             printf 'tags<<TAGS\n%s:unstable-%s\n%s:unstable\nTAGS\n' "$image" "$GITHUB_SHA" "$image" >> "$GITHUB_OUTPUT"
           fi
+      - name: Read the revision for "Show Server Revision"
+        id: revision
+        run: echo "date=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -131,7 +134,12 @@ jobs:
           context: .
           target: runtime
           # Independent Ubuntu mirror: Canonical DNS outage (runner-images#15296).
-          build-args: UBUNTU_MIRROR=http://mirrors.edge.kernel.org/ubuntu
+          # The image has no .git; the game shows this revision in "Show Server Revision".
+          build-args: |
+            UBUNTU_MIRROR=http://mirrors.edge.kernel.org/ubuntu
+            BABYLON_COMMIT=${{ github.sha }}
+            BABYLON_COMMIT_DATE=${{ steps.revision.outputs.date }}
+            BABYLON_REPOSITORY=${{ github.server_url }}/${{ github.repository }}
           platforms: linux/amd64
           push: true
           tags: ${{ steps.image.outputs.tags }}

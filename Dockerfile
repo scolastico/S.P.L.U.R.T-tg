@@ -71,4 +71,10 @@ EXPOSE 1361/tcp 1400-1420/tcp
 STOPSIGNAL SIGTERM
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
     CMD ["python3", "/opt/babylon/container/entrypoint.py", "--healthcheck"]
+# Build revision for the game's "Show Server Revision" (the image has no .git). Last, so a
+# new commit does not invalidate the cached layers above.
+ARG BABYLON_COMMIT=""
+ARG BABYLON_COMMIT_DATE=""
+ARG BABYLON_REPOSITORY=""
+ENV BABYLON_COMMIT=$BABYLON_COMMIT BABYLON_COMMIT_DATE=$BABYLON_COMMIT_DATE BABYLON_REPOSITORY=$BABYLON_REPOSITORY
 ENTRYPOINT ["python3", "/opt/babylon/container/entrypoint.py"]

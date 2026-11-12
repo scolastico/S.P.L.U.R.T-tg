@@ -87,3 +87,49 @@
 /datum/escape_menu/send_init()
 	. = ..()
 	send_update(list("babylon" = TRUE))
+
+/// The image has no .git, so rust-g returns "failed to open repository" text for every git
+/// lookup. The revision comes from the image instead (BABYLON_COMMIT and friends, set by CI),
+/// and anything that is not a commit hash is dropped rather than shown as one.
+/datum/getrev/New()
+	..()
+	// Not static: this datum is created during global init, before static vars are set up.
+	var/regex/hash = regex(@"^[0-9a-f]{7,40}$")
+	var/build_commit = world.GetConfig("env", "BABYLON_COMMIT")
+	if(istext(build_commit) && hash.Find(build_commit))
+		commit = build_commit
+		originmastercommit = build_commit
+		date = world.GetConfig("env", "BABYLON_COMMIT_DATE")
+	if(!istext(commit) || !hash.Find(commit))
+		commit = null
+	if(!istext(originmastercommit) || !hash.Find(originmastercommit))
+		originmastercommit = null
+	if(!commit && !originmastercommit)
+		date = null
+
+/// The repository players can read the code at: the build's, or the configured GitHub URL.
+/proc/babylon_repository_url()
+	var/repository = world.GetConfig("env", "BABYLON_REPOSITORY")
+	if(istext(repository) && findtext(repository, "https://") == 1)
+		return repository
+	return CONFIG_GET(string/githuburl)
+
+/// Babylon's revision info: BYOND version, repository, commit and build date. No round ID or
+/// antagonist settings, which Babylon does not have.
+/client/__gvb_showrevinfo(list/structured_args)
+	var/list/msg = list()
+	msg += "<b>BYOND Version:</b> [world.byond_version].[world.byond_build]"
+	if(DM_VERSION != world.byond_version || DM_BUILD != world.byond_build)
+		msg += "<b>Compiled with BYOND Version:</b> [DM_VERSION].[DM_BUILD]"
+	var/repository = babylon_repository_url()
+	if(repository)
+		msg += "<b>Repository:</b> <a href=\"[html_encode(repository)]\">[html_encode(repository)]</a>"
+	var/datum/getrev/revdata = GLOB.revdata
+	if(revdata?.commit)
+		var/short = copytext(revdata.commit, 1, 12)
+		msg += "<b>Commit:</b> [repository ? "<a href=\"[html_encode(repository)]/commit/[revdata.commit]\">[short]</a>" : short]"
+		if(revdata.date)
+			msg += "<b>Built from a commit of:</b> [html_encode(revdata.date)]"
+	else
+		msg += "No commit information (a local build)."
+	to_chat(src, fieldset_block("Server Revision Info", span_infoplain(jointext(msg, "<br>")), "boxed_message"), type = MESSAGE_TYPE_INFO)
