@@ -256,6 +256,23 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	web.babylon_target = saved_target
 	return result
 
+/datum/babylon_save/proc/test_closet_contents()
+	var/list/result = list()
+	result["station_has_supermatter"] = length(SSmachines.get_machines_by_type_and_subtypes(/obj/machinery/power/supermatter_crystal)) > 0
+	var/obj/structure/closet/crate/secure/engineering/crate = new(respawn_turf)
+	var/obj/machinery/power/supermatter_crystal/shard/shard = new(crate)
+	shard.warning_channel = null
+	var/list/records = list()
+	capture(crate, records, null)
+	var/saved = FALSE
+	for(var/list/record as anything in records)
+		if(record["type"] == "[shard.type]" && record["parent"])
+			saved = TRUE
+	result["machine_in_crate_saved"] = saved
+	qdel(shard)
+	qdel(crate)
+	return result
+
 /datum/babylon_save/proc/test_no_storyteller()
 	var/list/result = list()
 	result["babylon_storyteller"] = SSgamemode.storyteller?.type == /datum/storyteller/babylon

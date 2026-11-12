@@ -234,8 +234,12 @@
 			background_programs += program.filename
 		record["background_programs"] = background_programs
 	records += list(record)
-	for(var/obj/item/child in thing.contents)
-		if(!QDELETED(child))
+	for(var/obj/child in thing.contents)
+		if(QDELETED(child))
+			continue
+		// Containers hold more than items: the engine's secure crate holds the supermatter
+		// shard, a machine. Saving only items dropped it from every world after its first save.
+		if(isitem(child) || (istype(thing, /obj/structure/closet) && !istype(child, /obj/effect)))
 			capture(child, records, save_id)
 	return record
 
@@ -373,7 +377,8 @@
 	var/map_text = "//[DMM2TGM_MESSAGE]\n[headers.Join()][grid.Join()]"
 	var/list/state = list("version" = 5, "generation" = generation, "next_id" = next_id, "save_count" = save_count, "builder" = !QDELETED(builder) ? builder?.babylon_save_id : null, "records" = records, "turfs" = turfs)
 	state["player"] = list("respawn_pending" = respawn_pending, "respawn_remaining" = max(0, respawn_ready_at - world.time), "spawn_x" = respawn_turf?.x, "spawn_y" = respawn_turf?.y, "profile" = respawn_pending ? drone_profile.Copy() : capture_drone_profile())
-	state["version"] = 6
+	// 7: non-item contents of closets and crates are saved (restore_lost_supermatter()).
+	state["version"] = 7
 	var/list/players = list()
 	for(var/player_key in player_sessions)
 		players[player_key] = player_snapshot(player_sessions[player_key])
@@ -422,7 +427,7 @@
 			if(!parent)
 				continue
 			var/path = text2path(record["type"])
-			for(var/obj/item/candidate in parent.contents)
+			for(var/obj/candidate in parent.contents)
 				if(candidate.type == path && !(candidate in used_children))
 					thing = candidate
 					break
@@ -504,7 +509,7 @@
 			for(var/field in fields)
 				if(field in thing.vars)
 					thing.vars[field] = decode_value(fields[field])
-			if(record["materials"] && "materials" in machine.vars)
+			if(record["materials"] && ("materials" in machine.vars))
 				var/datum/material_container/mats = material_container(machine)
 				if(istype(machine.vars["materials"], /datum/remote_materials))
 					var/datum/remote_materials/remote = machine.vars["materials"]
@@ -657,7 +662,34 @@
 		research.babylon_target_location = research_data["target_location"]
 		research.babylon_try_finish()
 	GLOB.babylon_lore.restore(state["lore"])
+	if((state["version"] || 1) < 7)
+		restore_lost_supermatter()
 	to_chat(world, span_notice("Babylon resumed from [last_save]."))
+
+/// Saves before version 7 dropped the supermatter shard from the engine's secure crate, which
+/// makes progression impossible. Such a world without any crystal gets the shard back there.
+/// Only older saves are repaired: a crystal lost in play afterwards stays lost.
+/datum/babylon_save/proc/restore_lost_supermatter()
+	if(length(SSmachines.get_machines_by_type_and_subtypes(/obj/machinery/power/supermatter_crystal)))
+		return
+	var/atom/destination
+	var/list/engine = get_area_turfs(/area/ruin/space/bb13/engineering/engine, station_z)
+	for(var/turf/tile as anything in engine)
+		destination = locate(/obj/structure/closet/crate/secure/engineering) in tile
+		if(destination)
+			break
+	if(!destination)
+		for(var/turf/open/tile in engine)
+			if(!tile.is_blocked_turf(TRUE))
+				destination = tile
+				break
+	if(!destination)
+		migration_notes |= "The supermatter shard was missing and no place in the engine room was free to return it."
+		return
+	var/obj/machinery/power/supermatter_crystal/shard/shard = new(destination)
+	shard.warning_channel = null
+	migration_notes |= "Returned the supermatter shard that older saves dropped from the engine's secure crate."
+	log_world("Babylon: returned the lost supermatter shard to [destination] ([destination.x],[destination.y],[destination.z]).")
 
 // Group membership is derived from the saved IDs after every door exists.
 // Do not rely solely on the cached close_others list from a previous world.
