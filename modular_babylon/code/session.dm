@@ -107,6 +107,7 @@ SUBSYSTEM_DEF(babylon_builder)
 		session.boot_error = "Set babylon-owner=<BYOND ckey> in world parameters. A world owner is required."
 		return SS_INIT_FAILURE
 	session.player_sessions[session.owner_ckey] = session
+	babylon_apply_world_name()
 	var/raw_afk_timeout = world.params["babylon-afk-timeout"]
 	if(!isnull(raw_afk_timeout))
 		var/seconds = text2num(raw_afk_timeout)

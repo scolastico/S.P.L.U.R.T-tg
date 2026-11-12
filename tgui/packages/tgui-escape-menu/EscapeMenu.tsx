@@ -23,6 +23,8 @@ export type PlayerInfo = {
 };
 
 export type ServerState = {
+  /** BABYLON13: set by Babylon worlds, which have no rounds and rarely an admin online. */
+  babylon?: boolean;
   stationName: string;
   roundId: string;
   mapName: string;
@@ -202,7 +204,9 @@ export function EscapeMenu() {
 function Details({ serverState }: { serverState: ServerState }) {
   return (
     <div className="escape-menu__details">
-      <div>Round ID: {serverState.roundId || 'Unset'}</div>
+      {!serverState.babylon && (
+        <div>Round ID: {serverState.roundId || 'Unset'}</div>
+      )}
       <div>Server Time: {serverState.serverTime}</div>
       <div>Shift Time: {serverState.shiftTime}</div>
       <div>

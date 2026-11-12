@@ -131,7 +131,7 @@ class Driver:
         root = self.prepare(world, run)
         from urllib.parse import urlencode
         params = urlencode({"config-directory": str(root / "babylon-config"),
-                            "babylon-owner": world["owner"], "babylon-world": world["id"],
+                            "babylon-owner": world["owner"], "babylon-world": world["id"], "babylon-name": world["name"],
                             "babylon-run": run["id"], "babylon-secret": run["secret"],
                             "babylon-api": f"http://127.0.0.1:{self.config['listen_port']}",
                             "babylon-lobby": self.config["lobby_address"],

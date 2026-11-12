@@ -25,6 +25,7 @@
 #include "modular_babylon/code/moderation.dm"
 #include "modular_babylon/code/research.dm"
 #include "modular_babylon/code/world_players.dm"
+#include "modular_babylon/code/interface.dm"
 #ifdef BABYLON_TESTING
 #include "modular_babylon/code/testing.dm"
 #endif

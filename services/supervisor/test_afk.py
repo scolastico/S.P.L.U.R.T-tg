@@ -38,7 +38,7 @@ class AfkConfiguration(unittest.TestCase):
                 driver = Driver(config)
                 with patch.object(driver, 'prepare', return_value=Path(folder)), \
                         patch('supervisor.subprocess.Popen', return_value=SimpleNamespace(pid=123)) as launch:
-                    driver.start({'id': 'world', 'owner': 'owner'}, {'id': 'run', 'port': 1400, 'secret': 'test-only'})
+                    driver.start({'id': 'world', 'owner': 'owner', 'name': 'World'}, {'id': 'run', 'port': 1400, 'secret': 'test-only'})
                     arguments = launch.call_args.args[0]
                     params = parse_qs(arguments[arguments.index('-params') + 1])
                     self.assertEqual(params['babylon-afk-timeout'], [str(900 if value is None else value)])

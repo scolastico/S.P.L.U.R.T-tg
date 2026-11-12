@@ -24,9 +24,11 @@ export function PlayersPage({ serverState, onNavigate, onAction }: Props) {
             ))}
           </PlayerSection>
         ) : (
-          <div className="escape-menu__player-section-title">
-            No Admins Online!
-          </div>
+          !serverState.babylon && (
+            <div className="escape-menu__player-section-title">
+              No Admins Online!
+            </div>
+          )
         )}
         <PlayerSection title="Players">
           {serverState.players.map((player) => (
