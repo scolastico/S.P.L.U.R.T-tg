@@ -171,6 +171,53 @@ class BotHelpers(unittest.TestCase):
         (method, path, channel, body), = self.ticket_panel_requests([other, mine])
         self.assertEqual((method, path), ("PATCH", "/channels/{channel_id}/messages/{message_id}"))
 
+    def test_background_loops_survive_a_failing_run(self):
+        import asyncio
+        runs = []
+
+        async def step():
+            runs.append(len(runs))
+            if len(runs) == 1:
+                raise RuntimeError("first run fails")
+            if len(runs) == 3:
+                client.closed = True
+
+        client = types.SimpleNamespace(closed=False)
+        client.is_closed = lambda: client.closed
+        asyncio.run(self.bot.BabylonBot.repeat(client, "test", step, 0))
+        self.assertEqual(runs, [0, 1, 2])
+
+    def test_status_loop_starts_even_when_a_startup_step_fails(self):
+        import asyncio
+        started, errors = [], []
+
+        async def nothing(*args, **kwargs):
+            pass
+
+        async def broken():
+            raise TypeError("panel")
+
+        async def on_error(event, *args, **kwargs):
+            errors.append(event)
+
+        async def run():
+            loop = asyncio.get_running_loop()
+            client = types.SimpleNamespace(
+                guild=types.SimpleNamespace(name="Guild"), settings={"guild_id": 1}, user="bot",
+                features={"status", "tickets", "voice"}, loop_ref=loop, send=nothing,
+                cleanup_voice_rooms=nothing, ensure_ticket_panel=broken, on_error=on_error,
+                status_loop=lambda: nothing(started.append(True)))
+            await self.bot.BabylonBot.on_ready(client)
+            await asyncio.sleep(0)
+
+        asyncio.run(run())
+        self.assertEqual(started, [True])
+        self.assertEqual(errors, ["on_ready (ticket panel)"])
+
+    def test_background_loops_use_repeat(self):
+        source = (Path(__file__).parent / "discord_bot.py").read_text()
+        self.assertEqual(source.count("while not self.is_closed()"), 1, "loop through BabylonBot.repeat")
+
     def test_raw_http_goes_through_request_only(self):
         # discord.py's http helpers take multipart parameters; calling them with keywords
         # fails at runtime only. Raw calls must use http.request with a Route.

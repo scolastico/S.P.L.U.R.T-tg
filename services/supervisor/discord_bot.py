@@ -781,23 +781,34 @@ class BabylonBot(discord.Client):
         except discord.HTTPException as error:
             log(f"Updating the status message failed: {error}")
 
-    async def status_loop(self):
+    async def repeat(self, name, step, interval):
+        """Run step every interval seconds until the bot closes. A failing run is logged and the
+        loop continues; an uncaught error would otherwise end the task without a trace."""
         while not self.is_closed():
-            await self.update_status()
-            await asyncio.sleep(60)
+            try:
+                await step()
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:
+                log(f"The {name} loop failed: {error!r}")
+            await asyncio.sleep(interval)
+
+    async def status_loop(self):
+        await self.repeat("status", self.update_status, 60)
 
     def capture_game_line(self, source, line):
         if source == "supervisor" and line.strip():
             self.game_lines.append(time.strftime("%H:%M:%S ") + line)
 
+    async def flush_game_log(self):
+        lines = []
+        while self.game_lines:
+            lines.append(self.game_lines.popleft())
+        for block in chunk_lines(lines):
+            await self.send("game_log", content=block)
+
     async def game_log_loop(self):
-        while not self.is_closed():
-            await asyncio.sleep(5)
-            lines = []
-            while self.game_lines:
-                lines.append(self.game_lines.popleft())
-            for block in chunk_lines(lines):
-                await self.send("game_log", content=block)
+        await self.repeat("game log", self.flush_game_log, 5)
 
 
 class TicketModal(discord.ui.Modal, title="Open a support ticket"):
