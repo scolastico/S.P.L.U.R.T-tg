@@ -24,18 +24,20 @@
 	if(!holder)
 		remove_verb(src, list(/client/verb/aooc, /client/verb/sooc))
 
-/// The top bar keeps Menu, Settings, Fullscreen and Reconnect, spread over the 640px pane
-/// (skin.dmf has seven buttons of 88px at 14% steps; Character, Relays and Wiki are hidden).
+/// The top bar keeps Menu, Settings, Fullscreen and Reconnect in upstream's own button slots:
+/// Settings moves into Character's slot and Fullscreen into Settings', Reconnect stays at the
+/// right edge. The slots are read from the client (winget), so they are in its real pixels
+/// whatever its window size and display scaling; computed sizes overflowed narrow windows.
 /client/proc/babylon_setup_top_bar()
-	var/list/settings = list("infobuttons.hotkeys.is-visible=false", "infobuttons.relays.is-visible=false", "infobuttons.wiki.is-visible=false")
-	var/list/kept = list("options", "settings", "fullscreen-toggle", "reconnect")
-	for(var/index in 1 to length(kept))
-		var/button = "infobuttons.[kept[index]]"
-		settings += "[button].pos=[2 + (index - 1) * 160],5"
-		settings += "[button].size=156x27"
-		settings += "[button].anchor1=[(index - 1) * 25],0"
-		settings += "[button].anchor2=[index * 25],100"
-	winset(src, null, jointext(settings, ";"))
+	set waitfor = FALSE
+	var/character_slot = winget(src, "infobuttons.hotkeys", "pos;size;anchor1;anchor2")
+	var/settings_slot = winget(src, "infobuttons.settings", "pos;size;anchor1;anchor2")
+	if(!src)
+		return
+	winset(src, null, "infobuttons.hotkeys.is-visible=false;infobuttons.relays.is-visible=false;infobuttons.wiki.is-visible=false")
+	if(character_slot && settings_slot)
+		winset(src, "infobuttons.settings", character_slot)
+		winset(src, "infobuttons.fullscreen-toggle", settings_slot)
 	// The game window (and the Windows taskbar) shows the Babylon drone instead of SPLURT's icon.
 	// The shared skin.dmf is not changed; the file reference compiles the icon into the .rsc.
 	// A call of its own, so an icon the client rejects cannot undo the top bar changes.
