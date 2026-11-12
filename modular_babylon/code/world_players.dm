@@ -8,8 +8,27 @@
 /client/proc/babylon_world_manager()
 	return world.params["babylon-world"] && (babylon_world_role in list("owner", "admin"))
 
+/client
+	/// TRUE once this world announced the player's arrival, so only they are announced leaving.
+	var/babylon_announced = FALSE
+
+/// Join and leave notices for everyone in the world (stealthed admins are not announced).
+/client/proc/babylon_announce(message)
+	if(!world.params["babylon-world"] || holder?.fakekey)
+		return FALSE
+	to_chat(world, span_notice(message))
+	return TRUE
+
+/client/Destroy()
+	if(babylon_announced && !GLOB.babylon_save.draining)
+		babylon_announce("[html_encode(key)] left the world.")
+	return ..()
+
 /client/New(TopicData)
 	. = ..()
+	// A rejected admission returns before the client is registered.
+	if(src && (src in GLOB.clients))
+		babylon_announced = babylon_announce(babylon_showcase_visitor ? "[html_encode(key)] is visiting the world." : "[html_encode(key)] joined the world.")
 	if(src && babylon_world_manager())
 		add_verb(src, list(/client/proc/babylon_add_member, /client/proc/babylon_remove_member,
 			/client/proc/babylon_kick_player, /client/proc/babylon_ban_player, /client/proc/babylon_unban_player))
