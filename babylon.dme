@@ -20,6 +20,7 @@
 #include "modular_babylon/code/vault.dm"
 #include "modular_babylon/code/survival.dm"
 #include "modular_babylon/code/sfw.dm"
+#include "modular_babylon/code/links.dm"
 #ifdef BABYLON_TESTING
 #include "modular_babylon/code/testing.dm"
 #endif

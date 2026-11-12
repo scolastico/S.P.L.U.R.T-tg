@@ -1,7 +1,7 @@
 # Upstream integration hooks
 
 Babylon is opt-in: compile `babylon.dme`. The upstream `tgstation.dme` is
-unchanged. The thirteen modified upstream DM files use hooks guarded by
+unchanged. The fourteen modified upstream DM files use hooks guarded by
 `BABYLON_BUILDER` and marked `BABYLON13`. Ordinary SPLURT builds compile
 those blocks out.
 
@@ -27,6 +27,7 @@ newly added lewd interactions, designs, reactions and verbs against it.
 | `code/__HELPERS/priority_announce.dm` | Suppress round announcements and command reports in the builder world. |
 | `modular_zubbers/code/modules/storyteller/divergency_report.dm` | Suppress round-start station-trait reporting. |
 | `code/modules/client/client_procs.dm` | Validate single-use lobby admission before registering a child client or creating an avatar. Enforce showcase play mode and restrict visitor Topics/clicks before target dispatch. Standalone builds restrict access to their configured owner. |
+| `code/modules/escape_menu/escape_menu.dm` | Add the Discord button (`modular_babylon/code/links.dm`) to Resources when `DISCORDURL` is set. |
 | `code/controllers/subsystem/verbs.dm` | Enforce the visitor verb allowlist for native/context verbs, including verbs belonging to world objects. |
 | `code/_onclick/drag_drop.dm` | Reject showcase visitor mouse-down/up, drag and drop before target handlers or signals run. |
 | `code/modules/keybindings/bindings_client.dm` | Limit visitor shortcuts to chat and harmless display controls; normal movement handling remains available. |

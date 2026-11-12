@@ -130,6 +130,9 @@ GAME_VERB_HIDDEN(/client, reset_held_keys_verb, "Reset Held Keys")
 	if(configurl)
 		resources += list(list("id" = "config", "label" = "Config", "tooltip" = "View the server configuration files"))
 
+#ifdef BABYLON_BUILDER // BABYLON13: Discord button, see modular_babylon/UPSTREAM_HOOKS.md
+	resources += babylon_resources()
+#endif
 	resources += list(list("id" = "changelog", "label" = "Change Log", "tooltip" = "See all changes to the server"))
 
 	window.send_message("init", list(
@@ -250,6 +253,10 @@ GAME_VERB_HIDDEN(/client, reset_held_keys_verb, "Reset Held Keys")
 			client?.config()
 		if("resource_changelog")
 			client?.changelog()
+#ifdef BABYLON_BUILDER // BABYLON13: Discord button, see modular_babylon/UPSTREAM_HOOKS.md
+		if("resource_discord")
+			client?.babylon_open_discord()
+#endif
 		if("admin_notice")
 			client?.admin_notice()
 		if("toggle_ignore")
