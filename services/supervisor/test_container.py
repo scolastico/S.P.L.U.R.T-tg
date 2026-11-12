@@ -137,3 +137,27 @@ class LobbyHubListing(unittest.TestCase):
         self.assertNotIn("SORRYNOPASSWORD", world_block)
         new_proc = source.split("/world/New()")[1].split("\n/")[0]
         self.assertLess(new_proc.index('hub_password = lobby_config["hub_password"]'), new_proc.index("visibility = 1"))
+
+
+class DefaultGameConfig(unittest.TestCase):
+    """Babylon's default config does not include upstream's files, so settings players
+    rely on must be set in it explicitly."""
+
+    def flags(self):
+        directory = Path(__file__).resolve().parents[2] / "container/default-config"
+        flags, pending = set(), ["config.txt"]
+        while pending:
+            name = pending.pop()
+            self.assertTrue((directory / name).is_file(), f"$include {name} is missing")
+            for line in (directory / name).read_text().splitlines():
+                line = line.strip()
+                if line.startswith("$include "):
+                    pending.append(line.split(None, 1)[1])
+                elif line and not line.startswith("#"):
+                    flags.add(line.split()[0])
+        return flags
+
+    def test_ooc_stays_on_during_the_round_and_moderation_is_logged(self):
+        flags = self.flags()
+        self.assertIn("OOC_DURING_ROUND", flags)  # otherwise "OOC is globally muted" from round start
+        self.assertLessEqual({"LOG_OOC", "LOG_SAY", "LOG_ADMIN", "LOG_ADMINCHAT"}, flags)

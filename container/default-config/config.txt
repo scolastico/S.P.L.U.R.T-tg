@@ -6,3 +6,11 @@ GITHUBURL https://github.com/scolastico/babylon13
 # Babylon is safe for work; the build also forces these on.
 DISABLE_ERP_PREFERENCES
 DISABLE_LEWD_ITEMS
+# Upstream's game_options.txt/config.txt are not included, so their chat
+# settings are set here. Without OOC_DURING_ROUND, OOC is muted at round start.
+OOC_DURING_ROUND
+EMOJIS
+ALLOW_ADMIN_OOCCOLOR
+ALLOW_ADMIN_ASAYCOLOR
+# Game logs (say, OOC, admin actions, adminhelps ...), as upstream logs them.
+$include logging.txt

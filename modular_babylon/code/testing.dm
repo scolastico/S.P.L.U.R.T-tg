@@ -218,6 +218,8 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	GLOB.admin_datums -= "babylonsmokeadmin"
 	result["reply_needs_the_player"] = babylon_discord_ahelp_reply("babylonsmokeabsent", "Mod", "Hello")["result"] == "The player is no longer in this world"
 	result["ticket_commands_refused"] = !babylon_discord_ahelp_reply("babylonsmokeabsent", "Mod", "ticket close")["ok"]
+	result["ooc_allowed_during_round"] = GLOB.ooc_allowed && SSticker.current_state >= GAME_STATE_PLAYING
+	result["ooc_logged"] = !!CONFIG_GET(flag/log_ooc)
 	return result
 
 /datum/babylon_save/proc/test_no_storyteller()
