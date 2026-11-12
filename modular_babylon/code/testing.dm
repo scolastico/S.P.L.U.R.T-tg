@@ -208,6 +208,18 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	return TRUE
 
 // Guards the safe-for-work build (sfw.dm): every check must be TRUE.
+/datum/babylon_save/proc/test_moderation()
+	var/list/result = list()
+	SSplayer_ranks.mentor_controller?.add_player("babylonsmokementor")
+	result["no_mentors_loaded"] = !GLOB.mentor_datums["babylonsmokementor"]
+	babylon_grant_admin("babylonsmokeadmin")
+	var/datum/admins/granted = GLOB.admin_datums["babylonsmokeadmin"]
+	result["lobby_admin_granted"] = !!granted?.check_for_rights(R_EVERYTHING)
+	GLOB.admin_datums -= "babylonsmokeadmin"
+	result["reply_needs_the_player"] = babylon_discord_ahelp_reply("babylonsmokeabsent", "Mod", "Hello")["result"] == "The player is no longer in this world"
+	result["ticket_commands_refused"] = !babylon_discord_ahelp_reply("babylonsmokeabsent", "Mod", "ticket close")["ok"]
+	return result
+
 /datum/babylon_save/proc/test_no_storyteller()
 	var/list/result = list()
 	result["babylon_storyteller"] = SSgamemode.storyteller?.type == /datum/storyteller/babylon

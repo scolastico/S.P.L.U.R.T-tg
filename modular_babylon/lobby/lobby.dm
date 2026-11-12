@@ -60,6 +60,7 @@ var/global/list/lobby_config
 			in_lobby++
 	var/in_worlds = 0
 	var/running = 0
+	var/admin_worlds = 0
 	var/list/query = list("secret" = lobby_config["secret"], "action" = "summary")
 	var/list/response = Export("[lobby_config["api"]]/api?[list2params(query)]")
 	if(response && response["CONTENT"])
@@ -68,13 +69,15 @@ var/global/list/lobby_config
 			if(summary && summary["ok"])
 				in_worlds = text2num("[summary["players"]]") || 0
 				running = text2num("[summary["running_worlds"]]") || 0
+				admin_worlds = text2num("[summary["admin_worlds"]]") || 0
 		catch
 			in_worlds = 0
-	status = render_hub_status(in_lobby, in_worlds, running)
+	status = render_hub_status(in_lobby, in_worlds, running, admin_worlds)
 	game_state = 0
 
 /// Fills the BABYLON_HUB_STATUS template (see CLUSTER.md for the placeholders).
-/world/proc/render_hub_status(in_lobby, in_worlds, running)
+/// Admin worlds run outside the limit and are shown as "(+1)" after the running worlds.
+/world/proc/render_hub_status(in_lobby, in_worlds, running, admin_worlds = 0)
 	var/text = lobby_config["hub_status"] || "<b>{name}</b>"
 	var/list/values = list(
 		"{name}" = html_encode(name),
@@ -82,7 +85,8 @@ var/global/list/lobby_config
 		"{lobby_players}" = "[in_lobby]",
 		"{world_players}" = "[in_worlds]",
 		"{running_worlds}" = "[running]",
-		"{running_worlds_label}" = "[running] running world[running == 1 ? "" : "s"]",
+		"{running_worlds_label}" = "[running] running world[running == 1 ? "" : "s"][admin_worlds ? " (+[admin_worlds])" : ""]",
+		"{admin_worlds}" = "[admin_worlds]",
 		"{max_running_worlds}" = "[lobby_config["max_running_worlds"]]",
 		"{address}" = html_encode("[lobby_config["address"]]"),
 	)

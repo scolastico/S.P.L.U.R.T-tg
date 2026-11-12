@@ -32,6 +32,12 @@ class FakeDriver:
         del self.runs[run["id"]]
         return {"ok": True}
 
+    def ahelp_reply(self, run, payload):
+        self.replies = getattr(self, "replies", []) + [(run["id"], payload)]
+        if payload["ckey"] == "gone":
+            return {"ok": 0, "result": "The player is no longer in this world"}
+        return {"ok": 1, "result": "Message Successful"}
+
 
 class Policies(unittest.TestCase):
     def setUp(self):
@@ -235,7 +241,7 @@ class Policies(unittest.TestCase):
         self.assertIsNone(self.s.row("SELECT * FROM runs"))
 
     def test_summary_counts_players_across_running_worlds_without_actor(self):
-        self.assertEqual(self.s.dispatch("", "summary", {}), {"ok": True, "running_worlds": 0, "players": 0})
+        self.assertEqual(self.s.dispatch("", "summary", {}), {"ok": True, "running_worlds": 0, "admin_worlds": 0, "players": 0})
         one, two = self.start(self.create("one"), "one"), self.start(self.create("two"), "two")
         self.driver.runs[one["id"]]["players"] = ["alice", "bob"]
         self.driver.runs[two["id"]]["players"] = ["carol"]

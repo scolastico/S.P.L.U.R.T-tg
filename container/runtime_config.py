@@ -27,7 +27,7 @@ UPSTREAM_HUB = 'Exadv1.spacestation13'
 UPSTREAM_HUB_PASSWORD = 'kMZy3U5jJHSiBQjr'
 # BYOND hub status line (HTML). Placeholders, filled by the lobby every 30 s:
 # {name} {players} {lobby_players} {world_players} {running_worlds}
-# {running_worlds_label} {max_running_worlds} {address}
+# {running_worlds_label} {admin_worlds} {max_running_worlds} {address}
 DEFAULT_HUB_STATUS = ('<b>{name}</b> &#8212; persistent station building<br>'
                       'Players: <b>{players}</b> ({world_players} in {running_worlds_label}, '
                       '{lobby_players} in the lobby)')
@@ -101,9 +101,9 @@ def settings(env=None, runtime=Path('/run/babylon'), template=ROOT):
     return config, lobby, values, name
 
 
-DISCORD_FEATURES = ('link', 'roles', 'voice', 'logs', 'status', 'gamelog', 'tickets')
+DISCORD_FEATURES = ('link', 'roles', 'voice', 'logs', 'status', 'gamelog', 'tickets', 'ahelp')
 DISCORD_CHANNELS = ('status', 'voice_lobby', 'mod_log', 'member_log', 'message_log', 'voice_log', 'game_log', 'bot_log',
-                    'ticket_panel', 'ticket_log')
+                    'ticket_panel', 'ticket_log', 'ahelp')
 
 
 def flag(env, name, default='false'):
@@ -179,6 +179,8 @@ def discord_settings(env, address='', data_directory='/data'):
         raise ValueError('The status feature needs BABYLON_DISCORD_STATUS_CHANNEL')
     if 'gamelog' in settings['features'] and 'game_log' not in settings['channels']:
         raise ValueError('The gamelog feature needs BABYLON_DISCORD_GAME_LOG_CHANNEL')
+    if 'ahelp' in settings['features'] and not ('ahelp' in settings['channels'] and settings['staff_roles']):
+        raise ValueError('The ahelp feature needs BABYLON_DISCORD_AHELP_CHANNEL and _STAFF_ROLES')
     return settings
 
 

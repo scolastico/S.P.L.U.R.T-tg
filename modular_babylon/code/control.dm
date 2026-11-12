@@ -39,6 +39,9 @@
 			return session.managed_stop()
 		if("stop")
 			return session.managed_stop()
+		if("ahelp_reply")
+			var/list/payload = json_decode(input["payload"] || "{}")
+			return babylon_discord_ahelp_reply(payload["ckey"], payload["sender"], payload["message"])
 	return list("error" = "Unknown action")
 
 /datum/babylon_save/proc/stop_world()

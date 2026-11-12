@@ -105,6 +105,54 @@ class DiscordLinks(unittest.TestCase):
         self.assertEqual(sorted(str(w["name"]) for w in snapshot["worlds"]), ["None", "Open"])
         self.assertEqual((snapshot["total_worlds"], snapshot["max_running_worlds"]), (2, 2))
 
+    def test_admin_worlds_run_outside_the_limit_and_are_counted_separately(self):
+        for owner in ("first", "second"):
+            world = self.s.dispatch(owner, "create", dict(name=owner, visibility="public"))["id"]
+            self.s.dispatch(owner, "join", dict(world=world))
+        third = self.s.dispatch("third", "create", dict(name="Third", visibility="public"))["id"]
+        with self.assertRaisesRegex(Denied, "running-world limit"):
+            self.s.dispatch("third", "join", dict(world=third))
+        admin = self.s.dispatch("admin", "create", dict(name="Admin world", visibility="public"))["id"]
+        self.s.dispatch("admin", "join", dict(world=admin))
+        snapshot = self.s.status_snapshot()
+        self.assertEqual((snapshot["running_worlds"], snapshot["admin_worlds"]), (2, 1))
+        self.assertEqual([w["admin"] for w in snapshot["worlds"]], [False, False, True])
+        summary = self.s.dispatch("player", "summary", {})
+        self.assertEqual((summary["running_worlds"], summary["admin_worlds"]), (2, 1))
+
+    def running_world(self):
+        world = self.s.dispatch("owner", "create", dict(name="Ahelp world", visibility="public"))["id"]
+        self.s.dispatch("owner", "join", dict(world=world))
+        self.s.tick()
+        return dict(self.s.row("SELECT * FROM runs WHERE world=?", (world,)))
+
+    def test_ahelp_events_need_the_run_credentials_and_are_relayed_as_text(self):
+        run = self.running_world()
+        events = []
+        self.s.ahelp_relay = events.append
+        event = dict(kind="new", ticket="3", ckey="Some Player", key="Some Player", message="<b>Help</b> &amp; thanks")
+        with self.assertRaisesRegex(Denied, "credentials"):
+            self.s.relay_ahelp(run["id"], "wrong", event)
+        with self.assertRaisesRegex(Denied, "Unknown adminhelp event"):
+            self.s.relay_ahelp(run["id"], run["secret"], dict(event, kind="bogus"))
+        self.assertTrue(self.s.relay_ahelp(run["id"], run["secret"], event)["relayed"])
+        relayed, = events
+        self.assertEqual((relayed["ticket"], relayed["ckey"], relayed["world"], relayed["message"]),
+                         (3, "someplayer", "Ahelp world", "Help & thanks"))
+        self.s.ahelp_relay = None
+        self.assertFalse(self.s.relay_ahelp(run["id"], run["secret"], event)["relayed"])
+
+    def test_ahelp_replies_reach_only_a_running_world(self):
+        run = self.running_world()
+        self.assertTrue(self.s.ahelp_reply(run["id"], "Some Player", "Mod", "On my way")["ok"])
+        self.assertEqual(self.s.driver.replies[-1], (run["id"], {"ckey": "someplayer", "sender": "Mod", "message": "On my way"}))
+        with self.assertRaisesRegex(Denied, "ticket commands"):
+            self.s.ahelp_reply(run["id"], "someplayer", "Mod", "ticket close")
+        with self.assertRaisesRegex(Denied, "no longer in this world"):
+            self.s.ahelp_reply(run["id"], "gone", "Mod", "Hello?")
+        with self.assertRaisesRegex(Denied, "no longer running"):
+            self.s.ahelp_reply("missing", "someplayer", "Mod", "Hello?")
+
 
 @unittest.skipUnless(HAS_DISCORD, "discord.py is not installed")
 class BotHelpers(unittest.TestCase):
@@ -122,10 +170,11 @@ class BotHelpers(unittest.TestCase):
         snapshot = {"worlds": [{"name": "Open", "visibility": "public", "state": "running", "players": 2, "max_players": 4},
                                {"name": None, "visibility": "private", "state": "starting", "players": 0, "max_players": 4},
                                {"name": "Old", "visibility": "public", "state": "stopping", "players": 0, "max_players": 4}],
-                    "total_worlds": 5, "max_running_worlds": 4, "players": 2}
+                    "total_worlds": 5, "max_running_worlds": 4, "running_worlds": 2, "admin_worlds": 0, "players": 2}
         embed = self.bot.status_embed(snapshot, {"join_url": "https://example.org/join/", "address": "byond://h:1"})
         fields = {f.name: f.value for f in embed.fields}
         self.assertEqual(fields["Running worlds"], "2/4")
+        self.assertEqual(self.bot.running_worlds_label(dict(snapshot, running_worlds=2, admin_worlds=1)), "2/4 (+1)")
         self.assertIn("**Open** (public): 2/4 players", fields["Now running"])
         self.assertIn("*A private world* (private): starting", fields["Now running"])
         self.assertNotIn("Old", fields["Now running"])
@@ -159,6 +208,7 @@ class BotHelpers(unittest.TestCase):
         channel = types.SimpleNamespace(id=5, history=messages)
         client = types.SimpleNamespace(http=Http(), user=types.SimpleNamespace(id=1), channel=lambda name: channel)
         client.post_components = types.MethodType(self.bot.BabylonBot.post_components, client)
+        client.raw_message = types.MethodType(self.bot.BabylonBot.raw_message, client)
         asyncio.run(self.bot.BabylonBot.ensure_ticket_panel(client))
         return requests
 
@@ -250,6 +300,36 @@ class BotHelpers(unittest.TestCase):
         self.assertEqual(self.bot.audit_target(Entry(discord.AuditLogAction.kick)), "unknown")
         (key, text), = self.audit_entries(Entry(discord.AuditLogAction.kick, types.SimpleNamespace(id=42)))
         self.assertEqual((key, text), ("mod_log", "👢 <@42> was kicked by <@5>"))
+
+    def test_ahelp_entries_offer_a_reply_only_on_player_messages(self):
+        event = dict(run="r" * 32, world="World", kind="new", ticket=7, ckey="someplayer", key="SomePlayer",
+                     sender="", message="I fell through the floor")
+        embed, rows = self.bot.ahelp_entry(event)
+        self.assertIn("#7", embed.title)
+        button = rows[0]["components"][0]
+        self.assertEqual(button["custom_id"], "babylon:ahelp:reply:" + "r" * 32 + ":someplayer")
+        self.assertLessEqual(len("babylon:ahelp:reply:" + "r" * 32 + ":" + "x" * 30), 100)
+        embed, rows = self.bot.ahelp_entry(dict(event, kind="admin", sender="AdminKey"))
+        self.assertEqual(rows, [])
+        self.assertIn("AdminKey", embed.description)
+
+    def test_ahelp_events_of_one_ticket_share_a_thread(self):
+        import asyncio
+        requests = []
+
+        class Http:
+            async def request(self, route, json=None):
+                requests.append((route.method, route.path, route.channel_id))
+                return {"id": str(100 + len(requests))}
+
+        client = types.SimpleNamespace(http=Http(), ahelp_threads={}, channel=lambda key: types.SimpleNamespace(id=5))
+        client.raw_message = types.MethodType(self.bot.BabylonBot.raw_message, client)
+        event = dict(run="run", world="World", kind="new", ticket=7, ckey="someplayer", key="SomePlayer",
+                     sender="", message="Help")
+        for kind in ("new", "message", "admin"):
+            asyncio.run(self.bot.BabylonBot.post_ahelp(client, dict(event, kind=kind)))
+        self.assertEqual([(m, c) for m, _, c in requests], [("POST", 5), ("POST", 5), ("POST", 102), ("POST", 102)])
+        self.assertTrue(requests[1][1].endswith("/threads"))
 
     def test_raw_http_goes_through_request_only(self):
         # discord.py's http helpers take multipart parameters; calling them with keywords

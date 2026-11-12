@@ -30,6 +30,8 @@ FEATURES = ("link", "roles", "voice", "logs", "status", "gamelog", "tickets")
 ROLE_BUTTON = "babylon:role:"
 COLOR_BUTTON = "babylon:color:"
 TICKET_OPEN, TICKET_ADD, TICKET_CLOSE = "babylon:ticket:open", "babylon:ticket:add", "babylon:ticket:close"
+# babylon:ahelp:reply:<run id>:<ckey>, at most 83 characters (Discord allows 100).
+AHELP_REPLY = "babylon:ahelp:reply:"
 VOICE_KICK, VOICE_BAN, VOICE_UNBAN = "babylon:voice:kick", "babylon:voice:ban", "babylon:voice:unban"
 VOICE_LIMIT, VOICE_UNLIMIT = "babylon:voice:limit", "babylon:voice:unlimit"
 VOICE_RENAME, VOICE_TRANSFER = "babylon:voice:rename", "babylon:voice:transfer"
@@ -46,6 +48,12 @@ def clip(text, limit=1000):
     return text if len(text) <= limit else text[:limit - 1] + "…"
 
 
+def running_worlds_label(snapshot):
+    """Running worlds against the limit; admin worlds run outside it and show as "(+1)"."""
+    label = f"{snapshot['running_worlds']}/{snapshot['max_running_worlds']}"
+    return label + (f" (+{snapshot['admin_worlds']})" if snapshot.get("admin_worlds") else "")
+
+
 def status_embed(snapshot, settings, online=True):
     """The status message; private worlds are shown without their name."""
     if not online:
@@ -57,7 +65,8 @@ def status_embed(snapshot, settings, online=True):
     for world in running:
         name = f"**{world['name']}**" if world["name"] else "*A private world*"
         state = "starting" if world["state"] == "starting" else f"{world['players']}/{world['max_players']} players"
-        lines.append(f"• {name} ({world['visibility']}): {state}")
+        kind = "admin world" if world.get("admin") else world["visibility"]
+        lines.append(f"• {name} ({kind}): {state}")
     embed = discord.Embed(title="Babylon13 status", color=TEAL, description="🟢 **Online**")
     join = settings.get("join_url")
     address = settings.get("address")
@@ -66,7 +75,7 @@ def status_embed(snapshot, settings, online=True):
                                                                     f"`{address}`" if address else None])),
                         inline=False)
     embed.add_field(name="Players in worlds", value=str(snapshot["players"]))
-    embed.add_field(name="Running worlds", value=f"{len(running)}/{snapshot['max_running_worlds']}")
+    embed.add_field(name="Running worlds", value=running_worlds_label(snapshot))
     embed.add_field(name="Worlds", value=str(snapshot["total_worlds"]))
     embed.add_field(name="Now running", value="\n".join(lines)[:1024] if lines else "No world is running. Start one from the lobby!",
                     inline=False)
@@ -83,6 +92,29 @@ def audit_target(entry):
     except (TypeError, ValueError, AttributeError):
         target_id = None
     return f"<@{target_id}>" if target_id else "unknown"
+
+
+def ahelp_entry(event):
+    """The Discord message for one adminhelp event, and its Reply button for player messages."""
+    who = event["key"] or event["ckey"]
+    text = clip(event["message"], 3500) or "*(no text)*"
+    number = f"#{event['ticket']}" if event["ticket"] is not None else "(no ticket)"
+    kind = event["kind"]
+    if kind == "new":
+        embed = discord.Embed(title=f"🆘 Adminhelp {number} from {who}", color=AMBER, description=text)
+        embed.add_field(name="World", value=clip(event["world"], 1024))
+        embed.add_field(name="Player", value=f"`{event['ckey']}`")
+        embed.set_footer(text="Reply with the button; the player gets it as an admin PM. Tickets are closed in game.")
+    elif kind == "admin":
+        embed = discord.Embed(color=TEAL, description=f"🛡️ **{event['sender'] or 'An admin'}** (in game) → **{who}**: {text}")
+    else:
+        label = "replied" if kind == "reply" else "wrote"
+        embed = discord.Embed(color=AMBER, description=f"💬 **{who}** {label}: {text}")
+    rows = []
+    if kind != "admin" and event["ckey"]:
+        rows = [{"type": 1, "components": [{"type": 2, "style": 1, "label": "Reply", "emoji": {"name": "📨"},
+                                            "custom_id": f"{AHELP_REPLY}{event['run']}:{event['ckey']}"}]}]
+    return embed, rows
 
 
 def chunk_lines(lines, limit=1900):
@@ -122,6 +154,8 @@ class BabylonBot(discord.Client):
         self.voice_rooms = self.load_voice_rooms()
         self.voice_lock = asyncio.Lock()
         self.status_message = None
+        # (run id, ticket number or ckey) -> thread id of that adminhelp in the ahelp channel.
+        self.ahelp_threads = {}
         self.ticket_file = Path(settings["data_directory"]) / "discord-tickets.json"
         self.tickets = self.load_tickets()
         self.ticket_lock = asyncio.Lock()
@@ -157,6 +191,8 @@ class BabylonBot(discord.Client):
             self.loop_ref.create_task(self.game_log_loop())
         if "link" in self.features:
             self.supervisor.discord_link_changed = self.link_changed_threadsafe
+        if "ahelp" in self.features:
+            self.supervisor.ahelp_relay = self.ahelp_threadsafe
             self.supervisor.discord_membership = self.is_member
 
     async def on_ready(self):
@@ -250,6 +286,9 @@ class BabylonBot(discord.Client):
         if interaction.type != discord.InteractionType.component:
             return
         custom_id = (interaction.data or {}).get("custom_id", "")
+        if "ahelp" in self.features and custom_id.startswith(AHELP_REPLY):
+            await self.ahelp_button(interaction, custom_id[len(AHELP_REPLY):])
+            return
         if "tickets" in self.features and custom_id in (TICKET_OPEN, TICKET_ADD, TICKET_CLOSE):
             await self.ticket_button(interaction, custom_id)
             return
@@ -645,14 +684,68 @@ class BabylonBot(discord.Client):
             log(f"Posting the ticket panel failed: {error}")
 
     async def post_components(self, channel, embed, rows, message_id=None):
+        return await self.raw_message(channel.id, {"embeds": [embed.to_dict()], "components": rows}, message_id)
+
+    async def raw_message(self, channel_id, payload, message_id=None):
         """Post (or edit) a message with raw component rows. discord.py's own http helpers take
         multipart parameters rather than keywords, so every raw message call goes through here."""
         if message_id is None:
-            route = discord.http.Route("POST", "/channels/{channel_id}/messages", channel_id=channel.id)
+            route = discord.http.Route("POST", "/channels/{channel_id}/messages", channel_id=channel_id)
         else:
             route = discord.http.Route("PATCH", "/channels/{channel_id}/messages/{message_id}",
-                                       channel_id=channel.id, message_id=message_id)
-        await self.http.request(route, json={"embeds": [embed.to_dict()], "components": rows})
+                                       channel_id=channel_id, message_id=message_id)
+        return await self.http.request(route, json=dict(payload, allowed_mentions={"parse": []}))
+
+    # --- adminhelp relay -----------------------------------------------------------
+
+    def ahelp_threadsafe(self, event):
+        asyncio.run_coroutine_threadsafe(self.post_ahelp(event), self.loop_ref)
+
+    async def post_ahelp(self, event):
+        """One message with a thread per ticket; later events of that ticket go into the thread."""
+        channel = self.channel("ahelp")
+        if not channel:
+            return
+        embed, rows = ahelp_entry(event)
+        payload = {"embeds": [embed.to_dict()], "components": rows}
+        key = (event["run"], event["ticket"] if event["ticket"] is not None else event["ckey"])
+        try:
+            thread_id = self.ahelp_threads.get(key)
+            if thread_id:
+                await self.raw_message(thread_id, payload)
+                return
+            message = await self.raw_message(channel.id, payload)
+            route = discord.http.Route("POST", "/channels/{channel_id}/messages/{message_id}/threads",
+                                       channel_id=channel.id, message_id=message["id"])
+            number = f"#{event['ticket']}" if event["ticket"] is not None else "PM"
+            thread = await self.http.request(route, json={"name": clip(f"Ahelp {number} {event['ckey']} - {event['world']}", 100),
+                                                          "auto_archive_duration": 1440})
+            self.ahelp_threads[key] = int(thread["id"])
+        except discord.HTTPException as error:
+            log(f"Posting an adminhelp failed: {error}")
+
+    async def ahelp_button(self, interaction, target):
+        run_id, _, player = target.partition(":")
+        if not self.is_staff(interaction.user):
+            await interaction.response.send_message("Only staff can answer adminhelps.", ephemeral=True)
+            return
+        await interaction.response.send_modal(AhelpReplyModal(self, run_id, player))
+
+    async def send_ahelp_reply(self, interaction, run_id, player, text):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        sender = interaction.user.display_name
+        try:
+            await asyncio.to_thread(self.supervisor.ahelp_reply, run_id, player, sender, text)
+        except ValueError as error:
+            await interaction.followup.send(f"Not delivered: {error}", ephemeral=True)
+            return
+        except OSError:
+            await interaction.followup.send("Not delivered: the world did not answer.", ephemeral=True)
+            return
+        await interaction.followup.send("Delivered.", ephemeral=True)
+        if interaction.channel:
+            await interaction.channel.send(embed=discord.Embed(color=TEAL, description=f"📨 **{sender}** → **{player}**: {clip(text, 3500)}"),
+                                           allowed_mentions=discord.AllowedMentions.none())
 
     def ticket_of(self, member_id):
         return next((cid for cid, t in self.tickets["open"].items() if t["owner"] == member_id), None)
@@ -822,6 +915,17 @@ class BabylonBot(discord.Client):
 
     async def game_log_loop(self):
         await self.repeat("game log", self.flush_game_log, 5)
+
+
+class AhelpReplyModal(discord.ui.Modal, title="Answer the adminhelp"):
+    reply = discord.ui.TextInput(label="Your answer (sent as an admin PM)", style=discord.TextStyle.paragraph, max_length=1000)
+
+    def __init__(self, bot, run_id, player):
+        super().__init__()
+        self.bot, self.run_id, self.player = bot, run_id, player
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await self.bot.send_ahelp_reply(interaction, self.run_id, self.player, str(self.reply))
 
 
 class TicketModal(discord.ui.Modal, title="Open a support ticket"):

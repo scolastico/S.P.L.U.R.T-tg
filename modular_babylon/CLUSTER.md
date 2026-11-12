@@ -23,7 +23,8 @@ and child DreamDaemon ports are the only published endpoints.
 
 Copy `.env.example` to `.env`, set `BABYLON_PUBLIC_HOST` to the hostname/IP
 players can reach, and set `BABYLON_ADMINS` to a comma-separated list of BYOND
-accounts. These grant lobby administration, not in-game SPLURT admin ranks.
+accounts. These grant lobby administration and full game-admin rights in every
+world they join (granted on admission, for that world's run).
 
 ```sh
 # Local checkout: automatically includes compose.override.yml, builds :local.
@@ -66,7 +67,8 @@ connected.
 The status line is the HTML template `BABYLON_HUB_STATUS`, so links and wording
 can be changed without a rebuild. Placeholders: `{name}` (`BABYLON_SERVER_NAME`),
 `{players}` (total), `{lobby_players}`, `{world_players}`, `{running_worlds}`,
-`{running_worlds_label}` (for example "2 running worlds"),
+`{running_worlds_label}` (for example "2 running worlds", or "2 running worlds (+1)"
+while an admin world runs), `{admin_worlds}`,
 `{max_running_worlds}` and `{address}` (the lobby's byond:// address). The
 default is
 `<b>{name}</b> &#8212; persistent station building<br>Players: <b>{players}</b> ({world_players} in {running_worlds_label}, {lobby_players} in the lobby)`.
@@ -92,6 +94,7 @@ are set; `BABYLON_DISCORD_FEATURES` picks what it does:
 | `logs` | Member, message, voice and moderation logs, each in its own channel (unset channels are skipped). | log channels |
 | `status` | A status message (players, running worlds; private worlds stay anonymous), updated every minute and marked offline on shutdown. | `_STATUS_CHANNEL` |
 | `gamelog` | Every `[supervisor]` log line, batched into a channel. | `_GAME_LOG_CHANNEL` |
+| `ahelp` | Every adminhelp from a world becomes a message with a thread in a staff channel: the player's messages and replies, and in-game admins' answers. Staff answer with the "Reply" button; the player gets it as an admin PM (shown as "Administrator" unless `SHOW_IRC_NAME` is set). Tickets are closed in game. | `_AHELP_CHANNEL`, `_STAFF_ROLES` |
 | `tickets` | An "Open a ticket" button in a read-only channel opens a private channel for the member and `BABYLON_DISCORD_STAFF_ROLES`. Creator and staff can add people; closing it sends a `.txt` transcript to the creator by DM and to the ticket log. | `_TICKET_PANEL_CHANNEL`, `_TICKET_LOG_CHANNEL`, `_TICKET_CATEGORY`, `_STAFF_ROLES` |
 
 `/status` is always available. In the developer portal, enable the
@@ -231,10 +234,12 @@ lobby before stopping the cluster processes. Do not kill a child to save it.
   player's role. Join immediately displays progress before server preparation.
 - Owners create worlds, edit settings while stopped, grant/remove members,
   and request an immediate save-and-stop. Admins can see/join/manage every
-  world regardless of visibility/password. These permissions do not grant
-  SPLURT game-admin powers. Managers and delegated permissions are not yet added.
+  world regardless of visibility/password, and are full game admins inside
+  every world they join. Managers and delegated permissions are not yet added.
 - Limits configure total running worlds, players per world, worlds per owner,
-  and running worlds per owner. A member or admin starting another person's
+  and running worlds per owner. Worlds owned by an admin (`BABYLON_ADMINS`) do
+  not count towards the global running-world limit; they only need a free port
+  and are shown separately, e.g. "2/4 (+1)". A member or admin starting another person's
   world uses that world's owner quota. Admins bypass join capacity so they can
   investigate a full world; world creation/start quotas still apply.
 - Concurrent join requests share one startup. Settings are validated by the

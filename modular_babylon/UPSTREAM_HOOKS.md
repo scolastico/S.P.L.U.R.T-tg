@@ -25,6 +25,14 @@ random events off, again through overrides only. After an upstream merge,
 re-check `SSgamemode`'s `set_storyteller`/`init_storyteller`, the storyteller
 vote and `SSevents.spawnEvent` against it; the native smoke test asserts it.
 
+`modular_babylon/code/moderation.dm` grants lobby admins (`BABYLON_ADMINS`) full
+game-admin rights on admission, removes mentors (no mentor is loaded, admins
+are not made mentors, Mentorhelp and Mentorwho are gone) and relays adminhelps
+to the supervisor for the Discord `ahelp` feature; Discord replies use the
+game's external admin PM (`TgsPm`). All through overrides. After an upstream
+merge, re-check `MessageNoRecipient`, `reply_to_admins_notification`,
+`receive_ahelp`, `TgsPm` and the Skyrat mentor module against it.
+
 | Upstream file | Purpose |
 | --- | --- |
 | `code/controllers/master.dm` | Wait for restoration and final subsystem initialization before physics runs; support the isolated-test hold parameter. |
@@ -41,6 +49,7 @@ vote and `SSevents.spawnEvent` against it; the native smoke test asserts it.
 | `code/modules/mob/mob_movement.dm` | Enforce the visitor body before accepting movement, including reconnects from a former playable body. |
 | `code/modules/atmospherics/machinery/components/unary_devices/airlock_pump.dm` | Skip fresh-install door animations for saved pumps; rebuild their saved connections after restoration. |
 | `code/datums/materials/material_container/material_container.dm` | Discard invalid material keys before UI generation and stock accounting, preserving valid quantities. |
+| `tgui/packages/tgui-panel/settings/atoms.ts`, `migration.ts` | Default the chat panel (and with it the window) to the dark theme, and apply the default theme on a player's first start. Players' saved choices are kept. |
 | `tgui/packages/tgui/interfaces/VaultController.tsx` | Render the Babylon generation interlock (live generation, ignored battery output, hold timer) when the controller sends those fields; the upstream charge view is unchanged otherwise. Rebuild the TGUI bundle after editing. |
 
 Keep these patches small. Do not copy complete upstream files from the local

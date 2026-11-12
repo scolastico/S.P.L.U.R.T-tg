@@ -27,6 +27,8 @@
 		return FALSE
 	// Only the authenticated supervisor response can grant a play mode.
 	babylon_showcase_visitor = result["mode"] == "showcase"
+	if(result["role"] == "admin")
+		babylon_grant_admin(ckey)
 	if(babylon_showcase_visitor)
 		babylon_restrict_visitor_verbs()
 	return TRUE

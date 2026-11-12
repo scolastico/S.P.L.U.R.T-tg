@@ -6,6 +6,7 @@ Run: python services/supervisor/supervisor.py --config <private-config.json>
 import argparse
 import hashlib
 import hmac
+import html
 import json
 import os
 from pathlib import Path
@@ -33,6 +34,11 @@ class Denied(ValueError):
 # Link codes avoid look-alike characters (0/O, 1/I) because players type them.
 LINK_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 LINK_CODE_SECONDS = 600
+
+
+def plain_text(value):
+    """Game chat text as plain text: tags removed and entities decoded (ahelp relays)."""
+    return html.unescape(re.sub(r"<[^>]*>", "", value)).strip()
 
 
 def link_code_hash(code):
@@ -165,6 +171,9 @@ class Driver:
     def stop(self, run):
         return topic(run["port"], run["secret"], "managed_stop", timeout=180)
 
+    def ahelp_reply(self, run, payload):
+        return topic(run["port"], run["secret"], "ahelp_reply", payload)
+
 
 class Supervisor:
     def __init__(self, config, driver=None, clock=time.time):
@@ -211,6 +220,8 @@ class Supervisor:
         self.discord_membership = None
         # Set by the Discord bot: called with (ckey, discord_id, linked) after a change.
         self.discord_link_changed = None
+        # Called with each adminhelp event from a child world (the Discord bot relays them).
+        self.ahelp_relay = None
         self.checkpoints = Checkpoints(config["data_directory"], config.get("kept_save_points_per_world", 4))
         # Running children are reconciled by tick; stopped worlds have no writers.
         for row in self.db.execute("SELECT id FROM worlds WHERE id NOT IN (SELECT world FROM runs)"):
@@ -415,24 +426,71 @@ class Supervisor:
             except Exception as error:
                 log(f"Discord link notification failed: {error}")
 
+    AHELP_KINDS = ("new", "message", "reply", "admin")
+
+    def relay_ahelp(self, run_id, secret, data):
+        """An adminhelp event from a child world, authenticated with that run's credentials."""
+        with self.lock:
+            run = self.child(run_id, secret)
+            world = self.world(run["world"])
+        kind = data.get("kind")
+        if kind not in self.AHELP_KINDS:
+            raise Denied("Unknown adminhelp event")
+        ticket = str(data.get("ticket") or "")
+        event = dict(run=run["id"], world=world["name"] if world else "Unknown world", kind=kind,
+                     ticket=int(ticket) if ticket.isdigit() else None, ckey=ckey(str(data.get("ckey", ""))),
+                     key=str(data.get("key") or data.get("ckey") or "")[:64],
+                     sender=str(data.get("sender") or "")[:64], message=plain_text(str(data.get("message", "")))[:4000])
+        log("Adminhelp %s #%s from %s in %s" % (kind, event["ticket"], event["ckey"], event["world"]))
+        callback = self.ahelp_relay
+        if not callback:
+            return {"ok": True, "relayed": False}
+        try:
+            callback(event)
+        except Exception as error:
+            log(f"Relaying an adminhelp failed: {error}")
+            return {"ok": True, "relayed": False}
+        return {"ok": True, "relayed": True}
+
+    def ahelp_reply(self, run_id, target, sender, message):
+        """A staff reply from outside the game, delivered as an admin PM in that world."""
+        message = str(message).strip()
+        if not message:
+            raise Denied("The reply is empty")
+        if message.lower().startswith("ticket "):
+            raise Denied("Replies starting with 'ticket ' are read as ticket commands by the game")
+        with self.lock:
+            run = self.row("SELECT * FROM runs WHERE id=?", (run_id,))
+        if not run or run["state"] != "running":
+            raise Denied("That world is no longer running")
+        result = self.driver.ahelp_reply(dict(run), {"ckey": ckey(target), "sender": str(sender)[:64], "message": message[:1024]})
+        if not result.get("ok"):
+            raise Denied(str(result.get("result") or result.get("error") or "The reply could not be delivered"))
+        return result
+
     def status_snapshot(self):
         """Server-wide state for the Discord status message. Private worlds stay anonymous."""
         with self.lock:
-            rows = self.db.execute("SELECT w.name, w.visibility, w.max_players, r.state, r.players FROM runs r "
+            rows = self.db.execute("SELECT w.name, w.visibility, w.max_players, w.owner, r.state, r.players FROM runs r "
                                    "JOIN worlds w ON w.id=r.world ORDER BY r.started").fetchall()
             total = self.row("SELECT count(*) n FROM worlds")["n"]
         worlds = [{"name": row["name"] if row["visibility"] != "private" else None,
                    "visibility": row["visibility"], "state": row["state"], "max_players": row["max_players"],
-                   "players": len(json.loads(row["players"] or "[]"))} for row in rows]
+                   "players": len(json.loads(row["players"] or "[]")), "admin": row["owner"] in self.admins}
+                  for row in rows]
+        active = [w for w in worlds if w["state"] in ("starting", "running")]
         return {"worlds": worlds, "total_worlds": total, "max_running_worlds": self.config["max_running_worlds"],
-                "players": sum(w["players"] for w in worlds if w["state"] in ("starting", "running"))}
+                "running_worlds": sum(not w["admin"] for w in active), "admin_worlds": sum(w["admin"] for w in active),
+                "players": sum(w["players"] for w in active)}
 
     def summary(self):
         """Cluster-wide counts for the lobby's hub status; no per-world details."""
         with self.lock:
-            runs = self.db.execute("SELECT state, players FROM runs").fetchall()
+            runs = self.db.execute("SELECT r.state, r.players, w.owner FROM runs r LEFT JOIN worlds w ON w.id=r.world").fetchall()
         active = [run for run in runs if run["state"] in ("starting", "running")]
-        return {"ok": True, "running_worlds": len(active),
+        # Admin worlds run outside the limit and are reported separately ("2 running worlds (+1)").
+        return {"ok": True, "running_worlds": sum(run["owner"] not in self.admins for run in active),
+                "admin_worlds": sum(run["owner"] in self.admins for run in active),
                 "players": sum(len(json.loads(run["players"] or "[]")) for run in active)}
 
     def dispatch(self, actor, action, data):
@@ -568,8 +626,9 @@ class Supervisor:
             self.checkpoints.retain(world["id"])
         except CheckpointError as error:
             raise Denied(str(error)) from None
-        runs = [dict(r) for r in self.db.execute("SELECT * FROM runs")]
-        if len(runs) >= self.config["max_running_worlds"]:
+        runs = [dict(r) for r in self.db.execute("SELECT r.*, w.owner FROM runs r LEFT JOIN worlds w ON w.id=r.world")]
+        # Admin worlds run outside the limit; they only need a free port.
+        if world["owner"] not in self.admins and sum(r["owner"] not in self.admins for r in runs) >= self.config["max_running_worlds"]:
             raise Denied("The server's running-world limit has been reached")
         owned = self.row("SELECT count(*) n FROM runs r JOIN worlds w ON w.id=r.world WHERE w.owner=?", (world["owner"],))["n"]
         if owned >= self.config["max_running_worlds_per_player"]:
@@ -755,6 +814,8 @@ def serve(config, service=None):
                     data = {k: v[-1] for k, v in parse_qs(urlsplit(self.path).query, keep_blank_values=True).items()}
                 if data.get("action") == "redeem":
                     result = service.redeem(data.get("run"), data.get("secret", ""), data.get("ticket", ""), data.get("actor", ""))
+                elif data.get("action") == "ahelp":
+                    result = service.relay_ahelp(data.get("run"), data.get("secret", ""), data)
                 else:
                     if not hmac.compare_digest(str(data.get("secret", "")), config["lobby_secret"]):
                         raise Denied("Invalid lobby credentials")
