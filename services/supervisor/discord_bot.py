@@ -48,6 +48,11 @@ def clip(text, limit=1000):
     return text if len(text) <= limit else text[:limit - 1] + "…"
 
 
+def md(text):
+    """Player-written text shown in Discord Markdown: no formatting, no masked links."""
+    return discord.utils.escape_markdown(str(text or ""), as_needed=False)
+
+
 def running_worlds_label(snapshot):
     """Running worlds against the limit; admin worlds run outside it and show as "(+1)"."""
     label = f"{snapshot['running_worlds']}/{snapshot['max_running_worlds']}"
@@ -63,7 +68,7 @@ def status_embed(snapshot, settings, online=True):
     running = [w for w in worlds if w["state"] in ("starting", "running")]
     lines = []
     for world in running:
-        name = f"**{world['name']}**" if world["name"] else "*A private world*"
+        name = f"**{md(world['name'])}**" if world["name"] else "*A private world*"
         state = "starting" if world["state"] == "starting" else f"{world['players']}/{world['max_players']} players"
         kind = "admin world" if world.get("admin") else world["visibility"]
         lines.append(f"• {name} ({kind}): {state}")
@@ -96,17 +101,17 @@ def audit_target(entry):
 
 def ahelp_entry(event):
     """The Discord message for one adminhelp event, and its Reply button for player messages."""
-    who = event["key"] or event["ckey"]
-    text = clip(event["message"], 3500) or "*(no text)*"
+    who = md(event["key"] or event["ckey"])
+    text = clip(md(event["message"]), 3500) or "*(no text)*"
     number = f"#{event['ticket']}" if event["ticket"] is not None else "(no ticket)"
     kind = event["kind"]
     if kind == "new":
-        embed = discord.Embed(title=f"🆘 Adminhelp {number} from {who}", color=AMBER, description=text)
-        embed.add_field(name="World", value=clip(event["world"], 1024))
+        embed = discord.Embed(title=clip(f"🆘 Adminhelp {number} from {event['key'] or event['ckey']}", 256), color=AMBER, description=text)
+        embed.add_field(name="World", value=clip(md(event["world"]), 1024))
         embed.add_field(name="Player", value=f"`{event['ckey']}`")
         embed.set_footer(text="Reply with the button; the player gets it as an admin PM. Tickets are closed in game.")
     elif kind == "admin":
-        embed = discord.Embed(color=TEAL, description=f"🛡️ **{event['sender'] or 'An admin'}** (in game) → **{who}**: {text}")
+        embed = discord.Embed(color=TEAL, description=f"🛡️ **{md(event['sender'] or 'An admin')}** (in game) → **{who}**: {text}")
     else:
         label = "replied" if kind == "reply" else "wrote"
         embed = discord.Embed(color=AMBER, description=f"💬 **{who}** {label}: {text}")
@@ -744,7 +749,7 @@ class BabylonBot(discord.Client):
             return
         await interaction.followup.send("Delivered.", ephemeral=True)
         if interaction.channel:
-            await interaction.channel.send(embed=discord.Embed(color=TEAL, description=f"📨 **{sender}** → **{player}**: {clip(text, 3500)}"),
+            await interaction.channel.send(embed=discord.Embed(color=TEAL, description=f"📨 **{md(sender)}** → **{md(player)}**: {clip(md(text), 3500)}"),
                                            allowed_mentions=discord.AllowedMentions.none())
 
     def ticket_of(self, member_id):

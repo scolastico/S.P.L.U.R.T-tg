@@ -161,3 +161,18 @@ class DefaultGameConfig(unittest.TestCase):
         flags = self.flags()
         self.assertIn("OOC_DURING_ROUND", flags)  # otherwise "OOC is globally muted" from round start
         self.assertLessEqual({"LOG_OOC", "LOG_SAY", "LOG_ADMIN", "LOG_ADMINCHAT"}, flags)
+
+
+class LobbyHtml(unittest.TestCase):
+    """The lobby builds HTML from supervisor data (world names, descriptions, errors ...).
+    Every such value must go through html_encode, url_encode or lobby_number."""
+
+    def test_lobby_html_never_interpolates_raw_supervisor_data(self):
+        import re
+        source = (Path(__file__).resolve().parents[2] / "modular_babylon/lobby/lobby.dm").read_text()
+        data = r"(card|result|limits|discord|params|summary|lobby_config|code_result|unlink_result|history|status|current|payload)"
+        raw = re.compile(r"(?<![\w\]])\[" + data + r"\[")
+        offenders = [line.strip()[:120] for line in source.splitlines()
+                     if ("<" in line.replace("<<", "") or re.search(r"\b(rendered|content)\s*\+?=", line))
+                     and not line.strip().startswith("world.log") and raw.search(line)]
+        self.assertEqual(offenders, [])

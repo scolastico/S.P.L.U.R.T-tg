@@ -153,6 +153,14 @@ class DiscordLinks(unittest.TestCase):
         with self.assertRaisesRegex(Denied, "no longer running"):
             self.s.ahelp_reply("missing", "someplayer", "Mod", "Hello?")
 
+    def test_world_text_is_stripped_of_control_and_direction_characters(self):
+        world = self.s.dispatch("owner", "create", dict(name="My\u202eworld\u200b <b>", description="a\r\nb\x07",
+                                                         visibility="public"))["id"]
+        row = self.s.world(world)
+        self.assertEqual((row["name"], row["description"]), ("Myworld <b>", "a\nb"))
+        with self.assertRaisesRegex(Denied, "name of 1"):
+            self.s.dispatch("owner", "create", dict(name="\u200b\u202e", visibility="public"))
+
 
 @unittest.skipUnless(HAS_DISCORD, "discord.py is not installed")
 class BotHelpers(unittest.TestCase):
@@ -330,6 +338,21 @@ class BotHelpers(unittest.TestCase):
             asyncio.run(self.bot.BabylonBot.post_ahelp(client, dict(event, kind=kind)))
         self.assertEqual([(m, c) for m, _, c in requests], [("POST", 5), ("POST", 5), ("POST", 102), ("POST", 102)])
         self.assertTrue(requests[1][1].endswith("/threads"))
+
+    def test_player_text_cannot_format_or_link_in_discord(self):
+        bait = "[Free Nitro](https://example.org) **bold**"
+        snapshot = {"worlds": [{"name": bait, "visibility": "public", "state": "running", "players": 1, "max_players": 4}],
+                    "total_worlds": 1, "max_running_worlds": 4, "running_worlds": 1, "admin_worlds": 0, "players": 1}
+        import re
+        masked_link = re.compile(r"(?<!\\)\[Free Nitro\]\(")
+        running = {f.name: f.value for f in self.bot.status_embed(snapshot, {}).fields}["Now running"]
+        self.assertIsNone(masked_link.search(running), running)
+        self.assertNotIn("**bold**", running)
+        event = dict(run="run", world=bait, kind="new", ticket=1, ckey="someone", key="someone", sender="", message=bait)
+        embed, _ = self.bot.ahelp_entry(event)
+        self.assertIsNone(masked_link.search(embed.description), embed.description)
+        self.assertIsNone(masked_link.search(embed.fields[0].value), embed.fields[0].value)
+        self.assertIsNotNone(masked_link.search(bait))  # the pattern does catch an unescaped link
 
     def test_raw_http_goes_through_request_only(self):
         # discord.py's http helpers take multipart parameters; calling them with keywords

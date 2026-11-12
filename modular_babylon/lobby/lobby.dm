@@ -159,6 +159,10 @@ var/global/list/lobby_config
 /mob/lobby/proc/page_start()
 	return "<!doctype html><html><head><meta charset='utf-8'><meta http-equiv='X-UA-Compatible' content='IE=edge'><style>[file2text('modular_babylon/lobby/style.css')]</style><script>[file2text('modular_babylon/lobby/loading.js')]</script></head><body>"
 
+/// A number for the page; anything else from the supervisor becomes 0.
+/proc/lobby_number(value)
+	return isnum(value) ? value : 0
+
 /mob/lobby/proc/loading_panel(world_name, stage)
 	return "<div class='loading-shell'><section class='loading' role='status' aria-live='polite' aria-busy='true'><div class='spinner'></div><div class='brand'>BABYLON // WORLD MANAGEMENT</div><h1 id='loading-world'>[html_encode(world_name)]</h1><p id='loading-stage'>[html_encode(stage)]</p><small>Keep this client open while your request completes.</small></section></div>"
 
@@ -207,9 +211,11 @@ var/global/list/lobby_config
 			if(view_filter == "shared" && card["role"] != "member")
 				continue
 			visible++
-			var/id = card["id"]
+			// Everything from the supervisor is encoded for where it lands: text and attributes
+			// with html_encode, link parameters with url_encode, numbers as numbers.
+			var/id = url_encode("[card["id"]]")
 			var/world_name = html_encode(card["name"])
-			rendered += "<section class='card'><div class='card-head'><h2>[world_name]</h2><span class='badge [html_encode(card["state"])]'>[states[card["state"]] || "Unknown"]</span></div><p>[html_encode(card["description"] || "A Babylon station waiting to be rebuilt.")]</p><div class='meta'>Owner: [html_encode(card["owner"])] &nbsp; | &nbsp; Access: [html_encode(card["visibility"])] &nbsp; | &nbsp; [card["players"]]/[card["max_players"]] players online<br>Your role: <b>[html_encode(card["role"])]</b> &nbsp; | &nbsp; Last active: [html_encode(card["last_active"] || "Unknown")]<br>Last save: [html_encode(card["last_save"] || "None yet")]</div><div class='actions'>"
+			rendered += "<section class='card'><div class='card-head'><h2>[world_name]</h2><span class='badge [html_encode(card["state"])]'>[states[card["state"]] || "Unknown"]</span></div><p>[html_encode(card["description"] || "A Babylon station waiting to be rebuilt.")]</p><div class='meta'>Owner: [html_encode(card["owner"])] &nbsp; | &nbsp; Access: [html_encode(card["visibility"])] &nbsp; | &nbsp; [lobby_number(card["players"])]/[lobby_number(card["max_players"])] players online<br>Your role: <b>[html_encode(card["role"])]</b> &nbsp; | &nbsp; Last active: [html_encode(card["last_active"] || "Unknown")]<br>Last save: [html_encode(card["last_save"] || "None yet")]</div><div class='actions'>"
 			if(card["role"] != "guest" || card["state"] != "stopped")
 				var/join_label = card["state"] == "stopped" ? "Start and join" : (card["visibility"] == "showcase" && card["role"] == "guest" ? "Visit showcase" : "Join world")
 				rendered += "<a class='button primary' data-world='[world_name]' data-stage='Preparing your connection...' onclick='return beginAction(this)' href='?src=\ref[src];action=join;world=[id]'>[join_label]</a>"
@@ -235,10 +241,11 @@ var/global/list/lobby_config
 		var/list/limits = result["limits"]
 		player_limit = limits["max_players_per_world"]
 		var/expiry = result["delete_unused_worlds_after_days"]
-		var/expiry_text = expiry ? "Unused stopped worlds are deleted after [expiry] days." : "Automatic world expiry is disabled."
-		content += "<footer class='footer'>Server limits: [limits["max_running_worlds"]] running worlds; [limits["max_players_per_world"]] players per world; [limits["max_worlds_per_player"]] worlds and [limits["max_running_worlds_per_player"]] running worlds per owner.<br>Private worlds require membership. Your station continues from its last successful checkpoint.<br>[expiry_text]</footer>"
+		var/expiry_text = expiry ? "Unused stopped worlds are deleted after [lobby_number(expiry)] days." : "Automatic world expiry is disabled."
+		content += "<footer class='footer'>Server limits: [lobby_number(limits["max_running_worlds"])] running worlds; [lobby_number(limits["max_players_per_world"])] players per world; [lobby_number(limits["max_worlds_per_player"])] worlds and [lobby_number(limits["max_running_worlds_per_player"])] running worlds per owner.<br>Private worlds require membership. Your station continues from its last successful checkpoint.<br>[expiry_text]</footer>"
 	if(!browser_initialized)
-		var/initial = json_encode(json_encode(list("html" = content, "view" = view_filter, "revision" = revision, "complete" = 1)))
+		// json_encode leaves "</script>" as is; inside the inline script it would end the script.
+		var/initial = replacetext(json_encode(json_encode(list("html" = content, "view" = view_filter, "revision" = revision, "complete" = 1))), "</", "<\\/")
 		var/shell = "[page_start()]<main id='browser-content'></main><div id='action-loading' style='display:none'>[loading_panel("Your world", "Working...")]</div><script>renderLobby([initial]);</script></body></html>"
 		src << browse(shell, "window=lobby.browser")
 		browser_initialized = 1

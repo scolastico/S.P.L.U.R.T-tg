@@ -17,6 +17,7 @@ import sqlite3
 import subprocess
 import threading
 import time
+import unicodedata
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
@@ -39,6 +40,22 @@ LINK_CODE_SECONDS = 600
 def plain_text(value):
     """Game chat text as plain text: tags removed and entities decoded (ahelp relays)."""
     return html.unescape(re.sub(r"<[^>]*>", "", value)).strip()
+
+
+def clean_text(value, multiline=False):
+    """Player-written text (world names, descriptions): no control or bidirectional-override
+    characters, which could spoof how a name looks. HTML/Markdown is escaped where it is shown."""
+    if multiline:
+        value = re.sub(r"\r\n?", "\n", value)
+    kept = []
+    for char in value:
+        if char == "\n" and multiline:
+            kept.append(char)
+        elif char in "\t\n\r":
+            kept.append(" ")
+        elif unicodedata.category(char) not in ("Cc", "Cf", "Cs", "Co", "Cn"):
+            kept.append(char)
+    return "".join(kept).strip()
 
 
 def link_code_hash(code):
@@ -314,8 +331,8 @@ class Supervisor:
 
     def settings(self, data, current=None):
         current = current or {}
-        name = str(data.get("name", current.get("name", "Babylon"))).strip()
-        description = str(data.get("description", current.get("description", ""))).strip()
+        name = clean_text(str(data.get("name", current.get("name", "Babylon"))))
+        description = clean_text(str(data.get("description", current.get("description", ""))), multiline=True)
         visibility = data.get("visibility", current.get("visibility", "private"))
         if not 1 <= len(name) <= 60 or len(description) > 500:
             raise Denied("Use a name of 1–60 characters and a description up to 500 characters")
