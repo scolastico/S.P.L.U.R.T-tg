@@ -4,7 +4,7 @@
 or connect BYOND to `byond://62.84.176.153:1361`
 (server `62.84.176.153`, lobby port `1361`).
 
-**Community:** join our [**Discord**](https://discord.gg/25CanT4sXW) for help,
+**Community:** join our [**Discord**](https://discord.gg/9D5wqPF7bj) for help,
 bug reports, suggestions, server status and people to play with.
 
 > **Beta — expect refinement and tuning.**
