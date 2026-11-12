@@ -19,7 +19,9 @@ a{color:#a4d9ff;text-decoration:none}
 a:hover{text-decoration:underline}
 .button{display:inline-block;padding:12px 22px;margin:8px 0 18px;border:1px solid #6bcdc1;border-radius:6px;background:#256d66;color:#edf6ff;font-weight:600;font-size:17px}
 .button:hover{background:#2f8279;text-decoration:none}
-code{background:#26374e;border:1px solid #526b8b;border-radius:4px;padding:2px 6px;word-break:break-all}
+/* The address sits on its own line and wraps only on screens too narrow for it; words elsewhere never break. */
+.address{margin:0 0 16px}
+code{display:inline-block;max-width:100%;background:#26374e;border:1px solid #526b8b;border-radius:4px;padding:4px 10px;font-size:15px;overflow-wrap:anywhere;user-select:all}
 .status{min-height:1.55em}
 </style>
 </head>
@@ -29,8 +31,8 @@ code{background:#26374e;border:1px solid #526b8b;border-radius:4px;padding:2px 6
   <h1>Join the server</h1>
   <p class="status" id="status">Click the button to join.</p>
   <a class="button" id="join" href="byond://62.84.176.153:1361">Join with BYOND</a>
-  <p class="muted">Nothing happened? Click the button above, or connect to
-    <code>byond://62.84.176.153:1361</code> manually in BYOND.</p>
+  <p class="muted">Nothing happened? Click the button above, or connect to this address manually in BYOND:</p>
+  <p class="address"><code>byond://62.84.176.153:1361</code></p>
   <p class="muted">Don't have BYOND yet? <a href="https://www.byond.com/download/" rel="noopener">Download it here</a>,
     sign in with a BYOND account, then come back to this page.</p>
   <noscript><p class="muted">JavaScript is off, so BYOND was not opened automatically. Use the button.</p></noscript>
