@@ -14,7 +14,7 @@ permissions:
 # A new default-branch commit cancels the previous unstable run, including
 # build/publish/cleanup. PRs are isolated by ref; releases have their own groups.
 concurrency:
-  group: babylon-containers-${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+  group: babylon-containers-v2-${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
   cancel-in-progress: ${{ github.event_name != 'release' }}
 
 env:
@@ -96,7 +96,7 @@ jobs:
       packages: write
     # Tag moves (unstable, latest, releases) never interleave between runs.
     concurrency:
-      group: babylon-image-tags
+      group: babylon-image-tags-v2
       cancel-in-progress: false
       queue: max
     steps:
@@ -166,7 +166,7 @@ jobs:
       contents: read
       packages: write
     concurrency:
-      group: babylon-image-tags
+      group: babylon-image-tags-v2
       cancel-in-progress: false
       queue: max
     steps:

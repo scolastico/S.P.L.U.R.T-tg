@@ -236,7 +236,7 @@ jobs:
     # forced push; previews pushed while it runs would otherwise be lost. It also
     # keeps the deployments of the whole branch in order.
     concurrency:
-      group: gen-docs
+      group: gen-docs-v2
       cancel-in-progress: false
       queue: max
     steps:

@@ -19,7 +19,7 @@ jobs:
     # Shared with the map diff viewer and the join page, which publish to the
     # same branch.
     concurrency:
-      group: gen-docs
+      group: gen-docs-v2
       cancel-in-progress: false
       queue: max
     steps:
