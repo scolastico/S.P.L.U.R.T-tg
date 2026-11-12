@@ -57,7 +57,23 @@ upstream's shared `Exadv1.spacestation13` entry; override with `BABYLON_HUB` and
 `BABYLON_HUB_PASSWORD`). Child worlds always start with DreamDaemon's
 `-invisible` flag, because they only admit lobby tickets. The hub's own player
 counter only sees lobby connections, so the lobby refreshes its hub status every
-30 seconds with the total across the lobby and all running worlds.
+30 seconds with the total across the lobby and all running worlds. The lobby
+never sleeps while empty, so the entry stays listed without players.
+
+The status line is the HTML template `BABYLON_HUB_STATUS`, so links and wording
+can be changed without a rebuild. Placeholders: `{name}` (`BABYLON_SERVER_NAME`),
+`{players}` (total), `{lobby_players}`, `{world_players}`, `{running_worlds}`,
+`{running_worlds_label}` (for example "2 running worlds"),
+`{max_running_worlds}` and `{address}` (the lobby's byond:// address). The
+default is
+`<b>{name}</b> &#8212; persistent station building<br>Players: <b>{players}</b> ({world_players} in {running_worlds_label}, {lobby_players} in the lobby)`.
+
+Logs: `docker logs` is the single log of the cluster. Every line is prefixed
+with its source: `[supervisor]` (world starts, stops, saves, joins and every
+lobby action, plus errors), `[lobby]` (the lobby's DreamDaemon: connects,
+handoffs to worlds, failed actions) and `[world <name> <id>]` (each child
+world's DreamDaemon output, including its round `dd.log` with runtime errors).
+The per-world files under `/data/worlds/<id>/` stay as before.
 
 All supported settings and defaults are listed in `.env.example`: lobby and
 world ports, internal API port, admin CSV, global/per-owner world limits,

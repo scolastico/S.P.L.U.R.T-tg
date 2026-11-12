@@ -6,6 +6,8 @@ from pathlib import Path
 import re
 import string
 
+from logstream import log
+
 DICTIONARY_PATTERN = r'^"([a-zA-Z]+)" = \(\n(.*?)\)\n(?="|\n|\()'
 COLUMN_PATTERN = r'^\((\d+),(\d+),(\d+)\) = \{"\n(.*?)^"\}'
 # Objects a lore item must never share a tile with.
@@ -94,4 +96,4 @@ if __name__ == "__main__":
     arguments = parser.parse_args()
     placed = prepare_fresh_map(arguments.root, arguments.output)
     papers = sum(1 for entry in placed if entry["paper"])
-    print("Prepared Babylon wreck with %d lore placements and %d annex tiles." % (papers, len(placed) - papers))
+    log("Prepared Babylon wreck with %d lore placements and %d annex tiles." % (papers, len(placed) - papers))

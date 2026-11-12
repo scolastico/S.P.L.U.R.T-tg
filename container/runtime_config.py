@@ -25,6 +25,12 @@ DEFAULTS = {
 # Upstream's shared Space Station 13 hub entry; its password is public in code/world.dm.
 UPSTREAM_HUB = 'Exadv1.spacestation13'
 UPSTREAM_HUB_PASSWORD = 'kMZy3U5jJHSiBQjr'
+# BYOND hub status line (HTML). Placeholders, filled by the lobby every 30 s:
+# {name} {players} {lobby_players} {world_players} {running_worlds}
+# {running_worlds_label} {max_running_worlds} {address}
+DEFAULT_HUB_STATUS = ('<b>{name}</b> &#8212; persistent station building<br>'
+                      'Players: <b>{players}</b> ({world_players} in {running_worlds_label}, '
+                      '{lobby_players} in the lobby)')
 
 
 def settings(env=None, runtime=Path('/run/babylon'), template=ROOT):
@@ -67,6 +73,10 @@ def settings(env=None, runtime=Path('/run/babylon'), template=ROOT):
     hub = env.get('BABYLON_HUB', UPSTREAM_HUB)
     if not re.fullmatch(r'[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+', hub):
         raise ValueError('BABYLON_HUB must be a BYOND hub path such as Author.Game')
+    # Empty means the default, so Compose can pass ${BABYLON_HUB_STATUS:-}.
+    hub_status = env.get('BABYLON_HUB_STATUS', '').strip() or DEFAULT_HUB_STATUS
+    if len(hub_status) > 2048:
+        raise ValueError('BABYLON_HUB_STATUS must be at most 2048 characters')
     hub_password = env.get('BABYLON_HUB_PASSWORD', UPSTREAM_HUB_PASSWORD)
     if not re.fullmatch(r'[\x21-\x7e]{1,128}', hub_password):
         raise ValueError('BABYLON_HUB_PASSWORD must be printable ASCII without spaces')
@@ -84,7 +94,8 @@ def settings(env=None, runtime=Path('/run/babylon'), template=ROOT):
                   dreamdaemon='/opt/byond/bin/DreamDaemon', port_first=first, port_last=last)
     # Only the lobby is ever listed; child worlds run with DreamDaemon -invisible.
     lobby = dict(api='http://127.0.0.1:%s' % values['api_port'], secret=secret, port=values['lobby_port'],
-                 name=name, hub_listed=listed in ('true', '1', 'yes'), hub=hub, hub_password=hub_password)
+                 name=name, hub_listed=listed in ('true', '1', 'yes'), hub=hub, hub_password=hub_password,
+                 hub_status=hub_status, address=address, max_running_worlds=values['max_running_worlds'])
     return config, lobby, values, name
 
 

@@ -8,7 +8,9 @@ var/global/list/lobby_config
 	maxz = 1
 	view = 0
 	fps = 5
-	sleep_offline = 1
+	// A sleeping world stops refreshing its hub entry, so an empty lobby would
+	// drop off the hub list until someone joined. Keep it awake.
+	sleep_offline = 0
 	// BYOND only registers with the hub set at compile time, so hub is fixed here
 	// and, like upstream's update_hub_visibility(), listing is toggled through
 	// the password: a wrong one keeps the lobby off the hub until the lobby
@@ -30,6 +32,7 @@ var/global/list/lobby_config
 		return
 	if(lobby_config["name"])
 		name = lobby_config["name"]
+	world.log << "Lobby started as [name] (hub listing [lobby_config["hub_listed"] ? "on" : "off"])"
 	// Only the lobby is listed; child worlds run with -invisible and need a lobby ticket anyway.
 	if(lobby_config["hub_listed"])
 		if(lobby_config["hub"] && lobby_config["hub"] != hub)
@@ -59,9 +62,25 @@ var/global/list/lobby_config
 				running = text2num("[summary["running_worlds"]]") || 0
 		catch
 			in_worlds = 0
-	var/total = in_lobby + in_worlds
-	status = "<b>[html_encode(name)]</b> &#8212; persistent station building<br>Players: <b>[total]</b> ([in_worlds] in [running] running world[running == 1 ? "" : "s"], [in_lobby] in the lobby)"
+	status = render_hub_status(in_lobby, in_worlds, running)
 	game_state = 0
+
+/// Fills the BABYLON_HUB_STATUS template (see CLUSTER.md for the placeholders).
+/world/proc/render_hub_status(in_lobby, in_worlds, running)
+	var/text = lobby_config["hub_status"] || "<b>{name}</b>"
+	var/list/values = list(
+		"{name}" = html_encode(name),
+		"{players}" = "[in_lobby + in_worlds]",
+		"{lobby_players}" = "[in_lobby]",
+		"{world_players}" = "[in_worlds]",
+		"{running_worlds}" = "[running]",
+		"{running_worlds_label}" = "[running] running world[running == 1 ? "" : "s"]",
+		"{max_running_worlds}" = "[lobby_config["max_running_worlds"]]",
+		"{address}" = html_encode("[lobby_config["address"]]"),
+	)
+	for(var/key in values)
+		text = replacetext(text, key, values[key])
+	return text
 
 /world/Topic()
 	return null
@@ -84,20 +103,38 @@ var/global/list/lobby_config
 	var/browser_initialized = 0
 	var/request_revision = 0
 	var/last_browser_content = ""
+	var/poll_generation = 0
 
+// BYOND hands a returning player their old mob, so everything tied to the
+// previous client connection (its browser page, a pending action, the poll
+// loop) must be reset here, or the new client gets an empty grey window.
 /mob/lobby/Login()
 	..()
 	loc = locate(1, 1, 1)
+	browser_initialized = 0
+	last_browser_content = ""
+	busy = 0
+	request_revision++
+	var/generation = ++poll_generation
+	world.log << "[ckey] connected to the lobby"
 	spawn(50)
-		while(client)
+		while(client && generation == poll_generation)
 			if(!busy)
 				show_browser()
 			sleep(50)
+
+/mob/lobby/Logout()
+	world.log << "[ckey] left the lobby"
+	browser_initialized = 0
+	last_browser_content = ""
+	poll_generation++
+	..()
 
 /mob/lobby/proc/api(action, list/payload)
 	var/list/query = list("secret" = lobby_config["secret"], "actor" = ckey, "action" = action, "payload" = json_encode(payload || list()))
 	var/list/response = world.Export("[lobby_config["api"]]/api?[list2params(query)]")
 	if(!response || !response["CONTENT"])
+		world.log << "Supervisor unavailable for [ckey] ([action])"
 		return list("error" = "Supervisor unavailable. Please try again shortly.")
 	var/list/result
 	try
@@ -206,7 +243,8 @@ var/global/list/lobby_config
 		sleep(1)
 	try
 		handle_action(params)
-	catch
+	catch(var/exception/error)
+		world.log << "Lobby action [params["action"]] by [ckey] failed: [error] ([error.file]:[error.line])"
 		notice = "Request failed. Please try again."
 	busy = 0
 	if(client)
@@ -263,6 +301,7 @@ var/global/list/lobby_config
 				notice = result["error"]
 				return
 			if(result["address"])
+				world.log << "[ckey] sent to world [card["name"]] ([params["world"]])"
 				src << link(result["address"])
 				notice = "Connection offered. If you cancelled it, click Join again."
 				return

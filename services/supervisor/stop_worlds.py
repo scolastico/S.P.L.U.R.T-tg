@@ -8,6 +8,8 @@ import time
 import urllib.error
 import urllib.request
 
+from logstream import log
+
 
 def running_worlds(database):
     if not database.exists():
@@ -22,7 +24,7 @@ def stop_worlds(config, timeout=180, request=None, sleep=time.sleep, clock=time.
     database = Path(config['data_directory']) / 'supervisor.sqlite3'
     worlds = running_worlds(database)
     if not worlds:
-        print('No world servers are running.', flush=True)
+        log('No world servers are running.')
         return
     if request is None:
         def request(actor, world):
@@ -37,7 +39,7 @@ def stop_worlds(config, timeout=180, request=None, sleep=time.sleep, clock=time.
                 result = json.load(error)
             if not result.get('ok'):
                 raise RuntimeError(result.get('error', 'Supervisor rejected shutdown'))
-    print('Saving and stopping %d world(s)...' % len(worlds), flush=True)
+    log('Saving and stopping %d world(s)...' % len(worlds))
     # A child cannot checkpoint until restoration/initialization has finished.
     # Closing the lobby already prevents further launches while we wait.
     deadline = clock() + max(timeout, config.get('startup_timeout_seconds', 300))
@@ -52,7 +54,7 @@ def stop_worlds(config, timeout=180, request=None, sleep=time.sleep, clock=time.
     while True:
         remaining = running_worlds(database)
         if not remaining:
-            print('All worlds saved and stopped.', flush=True)
+            log('All worlds saved and stopped.')
             return
         failures = [world for world in remaining if world['state'] == 'error']
         if failures:

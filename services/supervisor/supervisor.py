@@ -23,6 +23,7 @@ from protocol import topic
 from checkpoints import Checkpoints, CheckpointError
 from map_overlay import prepare_fresh_map
 from world_storage import delete_world_data
+from logstream import Follower, log, world_source
 
 
 class Denied(ValueError):
@@ -114,6 +115,8 @@ class Driver:
         finally:
             log.close()
         self.processes[run["id"]] = process
+        # Mirror the child's own log files into the container log, prefixed.
+        Follower(world_source(world), root, lambda: process.poll() is None).start()
         return process.pid
 
     def alive(self, run):
@@ -230,7 +233,7 @@ class Supervisor:
             try:
                 delete_world_data(self.config["data_directory"], world)
             except (OSError, ValueError):
-                print(f"World cleanup pending for {world}; will retry", flush=True)
+                log(f"World cleanup pending for {world}; will retry")
                 return False
             with self.lock, self.db:
                 self.db.execute("DELETE FROM world_deletions WHERE world=?", (world,))
@@ -253,7 +256,7 @@ class Supervisor:
             self.checkpoints.retain(world, expected)
         except (CheckpointError, OSError, ValueError, KeyError):
             # A damaged history must not prevent unrelated worlds from running.
-            print(f"Checkpoint maintenance failed for world {world}; history retained for inspection", flush=True)
+            log(f"Checkpoint maintenance failed for world {world}; history retained for inspection")
 
     def row(self, sql, args=()):
         result = self.db.execute(sql, args).fetchone()
@@ -275,6 +278,11 @@ class Supervisor:
 
     def audit(self, actor, action, world_id):
         self.db.execute("INSERT INTO audit VALUES(?,?,?,?)", (self.clock(), actor, action, world_id))
+        log("%s: %s %s" % (actor, action, self.describe(world_id)))
+
+    def describe(self, world_id):
+        world = self.row("SELECT id, name FROM worlds WHERE id=?", (world_id,)) if world_id else None
+        return world_source(dict(world)).split(" ", 1)[1] if world else (world_id or "")
 
     def settings(self, data, current=None):
         current = current or {}
@@ -450,7 +458,9 @@ class Supervisor:
         try:
             pid = self.driver.start(world, run)
             self.db.execute("UPDATE runs SET pid=? WHERE id=?", (pid, run["id"]))
-        except Exception:
+            log("Starting %s on port %s (pid %s)" % (self.describe(world["id"]), port, pid))
+        except Exception as error:
+            log("Starting %s failed: %s" % (self.describe(world["id"]), error))
             self.db.execute("DELETE FROM runs WHERE id=?", (run["id"],))
             self.db.commit()
             raise Denied("Child startup failed; check the supervisor and daemon logs")
@@ -487,6 +497,7 @@ class Supervisor:
         if run["id"] in self.stop_workers:
             return
         self.stop_workers.add(run["id"])
+        log("Stopping %s (port %s): saving" % (self.describe(run["world"]), run["port"]))
         self.db.execute("UPDATE runs SET state='stopping',error=NULL WHERE id=?", (run["id"],))
         self.db.execute("DELETE FROM tickets WHERE run=?", (run["id"],))
         self.db.commit()
@@ -496,7 +507,8 @@ class Supervisor:
                 response = self.driver.stop(run)
                 if not response.get("ok"):
                     raise Denied("Final save failed; child has been kept alive")
-            except Exception:
+            except Exception as error:
+                log("Stopping %s failed, process retained: %s" % (self.describe(run["world"]), error))
                 with self.lock, self.db:
                     self.db.execute("UPDATE runs SET state='error',error=? WHERE id=?",
                                     ("Stop/save failed; process retained. Inspect logs and retry Stop.", run["id"]))
@@ -520,7 +532,9 @@ class Supervisor:
                     if self.clock() - run["started"] > self.config["startup_timeout_seconds"] and run["state"] == "starting":
                         with self.lock, self.db:
                             self.db.execute("UPDATE runs SET state='error',error='Startup timed out; process retained' WHERE id=?", (run["id"],))
+                        log("%s did not start within %ss; process retained" % (self.describe(run["world"]), self.config["startup_timeout_seconds"]))
                     continue
+                log("%s exited (port %s)" % (self.describe(run["world"]), run["port"]))
                 with self.lock, self.db:
                     self.db.execute("DELETE FROM runs WHERE id=?", (run["id"],))
                     self.db.execute("DELETE FROM tickets WHERE run=?", (run["id"],))
@@ -539,6 +553,9 @@ class Supervisor:
                     state = "running"
                 if status.get("error"):
                     state = "error"
+                if state != current["state"]:
+                    log("%s is %s%s" % (self.describe(run["world"]), state,
+                                        ": " + str(status["error"]) if status.get("error") else ""))
                 self.db.execute("DELETE FROM tickets WHERE expires<=?", (self.clock(),))
                 # Admissions get a short interval to complete client.New after redemption.
                 active = {r[0] for r in self.db.execute("SELECT actor FROM audit WHERE action='admit' AND world=? AND at>?", (run["world"], self.clock() - 30))}
@@ -626,7 +643,7 @@ def serve(config, service=None):
             except Exception:
                 result, code = {"ok": False, "error": "Supervisor error; consult server logs"}, 500
                 import traceback
-                traceback.print_exc()
+                log(traceback.format_exc())
             encoded = json.dumps(result).encode()
             self.send_response(code)
             self.send_header("Content-Type", "application/json")
@@ -644,11 +661,11 @@ def serve(config, service=None):
                 service.tick()
             except Exception:
                 import traceback
-                traceback.print_exc()
+                log(traceback.format_exc())
             time.sleep(2)
 
     threading.Thread(target=monitor, daemon=True).start()
-    print(f"Babylon supervisor on 127.0.0.1:{config['listen_port']}", flush=True)
+    log(f"Listening on 127.0.0.1:{config['listen_port']}")
     server.serve_forever()
 
 

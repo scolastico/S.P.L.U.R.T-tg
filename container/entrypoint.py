@@ -17,6 +17,7 @@ from urllib.parse import urlencode
 from runtime_config import ROOT, write_settings
 from supervisor import Supervisor, serve
 from stop_worlds import stop_worlds
+from logstream import log, pump
 
 RUNTIME = Path('/run/babylon')
 
@@ -53,15 +54,17 @@ def main():
     shutil.copytree(ROOT / 'modular_babylon/lobby', directory / 'modular_babylon/lobby', dirs_exist_ok=True)
     params = urlencode({'lobby-config': str(RUNTIME / 'lobby.json')})
     menu = subprocess.Popen([config['dreamdaemon'], 'babylon-lobby.dmb', str(lobby['port']),
-                             '-ip', '0.0.0.0', '-trusted', '-close', '-params', params], cwd=directory)
+                             '-ip', '0.0.0.0', '-trusted', '-close', '-params', params], cwd=directory,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    pump(menu.stdout, 'lobby')
     stopping = threading.Event()
     for kind in (signal.SIGTERM, signal.SIGINT):
         signal.signal(kind, lambda *_: stopping.set())
-    print('Babylon lobby: ' + config['lobby_address'], flush=True)
+    log('Lobby address: ' + config['lobby_address'])
     exit_code = 0
     while True:
         if menu.poll() is not None or not api.is_alive():
-            print('A cluster component exited; saving worlds before restart.', flush=True)
+            log('A cluster component exited (lobby exit code %s); saving worlds before restart.' % menu.poll())
             stopping.set()
             exit_code = 1
         if stopping.wait(.5):
@@ -78,7 +81,7 @@ def main():
             except Exception as error:
                 # Keep unsaved world processes alive. Docker may still SIGKILL
                 # after stop_grace_period; allow enough time to resolve failures.
-                print('Shutdown could not complete; worlds retained: %s. Retrying...' % error, flush=True)
+                log('Shutdown could not complete; worlds retained: %s. Retrying...' % error)
                 time.sleep(5)
                 continue
             return exit_code
@@ -94,5 +97,5 @@ if __name__ == '__main__':
         else:
             raise SystemExit(main())
     except Exception as error:
-        print(str(error), file=sys.stderr, flush=True)
+        print('[supervisor] %s' % error, file=sys.stderr, flush=True)
         raise SystemExit(1)

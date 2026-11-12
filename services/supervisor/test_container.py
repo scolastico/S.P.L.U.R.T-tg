@@ -47,9 +47,18 @@ class ContainerConfiguration(unittest.TestCase):
         self.assertTrue(lobby['hub_listed'])
         self.assertEqual((lobby['hub'], lobby['hub_password']), ('Someone.babylon', 's3cret!'))
         for values in (dict(BABYLON_HUB_LISTED='maybe'), dict(BABYLON_HUB='no-dot'),
-                       dict(BABYLON_HUB_PASSWORD='has space')):
+                       dict(BABYLON_HUB_PASSWORD='has space'), dict(BABYLON_HUB_STATUS='x' * 2049)):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 runtime.settings(values)
+
+    def test_hub_status_template_comes_from_the_environment(self):
+        lobby = runtime.settings({})[1]
+        self.assertIn('{players}', lobby['hub_status'])
+        self.assertEqual((lobby['address'], lobby['max_running_worlds']),
+                         ('byond://127.0.0.1:1361', runtime.settings({})[2]['max_running_worlds']))
+        template = '<b>{name}</b> <a href="https://example.org">Discord</a> {players} online'
+        self.assertEqual(runtime.settings(dict(BABYLON_HUB_STATUS=template))[1]['hub_status'], template)
+        self.assertEqual(runtime.settings(dict(BABYLON_HUB_STATUS=' '))[1]['hub_status'], lobby['hub_status'])
 
     def test_invalid_ports_and_unsafe_environment_are_rejected(self):
         for values in (
