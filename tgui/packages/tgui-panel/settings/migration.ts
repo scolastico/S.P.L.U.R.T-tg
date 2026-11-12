@@ -96,6 +96,8 @@ export function startSettingsMigration(next: MergedSettings): void {
       initialized: true,
     };
     storage.set('panel-settings', initialized);
+    // BABYLON13: apply the default theme to the window too; it is not the skin's light one.
+    generalSettingsHandler(initialized);
     store.set(settingsAtom, initialized);
     console.log('Initialized settings with defaults.');
     return;

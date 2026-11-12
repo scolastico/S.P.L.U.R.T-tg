@@ -11,7 +11,7 @@ export const defaultSettings: SettingsState = {
   statFontSize: 12,
   statLinked: true,
   statTabsStyle: 'default',
-  theme: 'light',
+  theme: 'dark', // BABYLON13: dark by default (upstream: 'light')
   version: 1,
   view: {
     visible: false,
