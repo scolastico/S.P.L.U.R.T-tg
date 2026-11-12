@@ -208,6 +208,16 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	return TRUE
 
 // Guards the safe-for-work build (sfw.dm): every check must be TRUE.
+/datum/babylon_save/proc/test_no_storyteller()
+	var/list/result = list()
+	result["babylon_storyteller"] = SSgamemode.storyteller?.type == /datum/storyteller/babylon
+	result["no_vote_running"] = !istype(SSvote.current_vote, /datum/vote/storyteller)
+	result["vote_refused"] = !SSvote.initiate_vote(/datum/vote/storyteller, "Babylon test", forced = TRUE)
+	SSgamemode.set_storyteller(/datum/storyteller/high, TRUE, "babylon-test")
+	result["other_storyteller_refused"] = SSgamemode.storyteller?.type == /datum/storyteller/babylon
+	result["no_scheduled_events"] = !length(SSgamemode.scheduled_events)
+	return result
+
 /datum/babylon_save/proc/test_sfw_content()
 	var/list/result = list()
 	result["erp_preferences_disabled"] = !!CONFIG_GET(flag/disable_erp_preferences)

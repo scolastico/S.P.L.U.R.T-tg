@@ -18,6 +18,13 @@ new Babylon-only `tgui/packages/tgui/interfaces/BabylonInteraction.tsx`
 instead of SPLURT's `MobInteraction` window. After an upstream merge, re-check
 newly added lewd interactions, designs, reactions and verbs against it.
 
+Babylon has no storyteller yet. `modular_babylon/code/storyteller.dm` runs an
+inert `/datum/storyteller/babylon` in every world (no events, no antagonists),
+refuses the storyteller vote and any other storyteller, and keeps tgstation's
+random events off, again through overrides only. After an upstream merge,
+re-check `SSgamemode`'s `set_storyteller`/`init_storyteller`, the storyteller
+vote and `SSevents.spawnEvent` against it; the native smoke test asserts it.
+
 | Upstream file | Purpose |
 | --- | --- |
 | `code/controllers/master.dm` | Wait for restoration and final subsystem initialization before physics runs; support the isolated-test hold parameter. |

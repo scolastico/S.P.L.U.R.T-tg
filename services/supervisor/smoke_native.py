@@ -115,6 +115,9 @@ def main():
         sfw = call(run, "session", "test_sfw_content")
         sfw = {entry["entry"]: entry["value"] for entry in sfw["entries"]}
         assert sfw and all(sfw.values()), sfw
+        storyteller = call(run, "session", "test_no_storyteller")
+        storyteller = {entry["entry"]: entry["value"] for entry in storyteller["entries"]}
+        assert storyteller and all(storyteller.values()), storyteller
         player = call(run, "session", "ensure_player", ["smokefriend"])
         friend_ref = player["ref"]
         fields = debug(run, "inspect", dict(target=friend_ref, vars=["builder"]))["vars"]
