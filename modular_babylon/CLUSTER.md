@@ -94,7 +94,9 @@ ordinary upstream builds and runs Python/browser tests for PRs and pushes to
 - After a successful release, the workflow can trigger a Komodo procedure (for
   example a redeploy) through its GitLab-style webhook. Set the action secrets
   `KOMODO_WEBHOOK_URL` (listener URL ending in `/<default branch>`) and
-  `KOMODO_WEBHOOK_SECRET`; without both the step is skipped. Release tags are literal Docker tags; `v1.0.0` remains `:v1.0.0`.
+  `KOMODO_WEBHOOK_SECRET`; without both the step is skipped. Set the action variable
+  `KOMODO_NOTIFY_UNSTABLE` to `true` to also trigger it after every published
+  unstable build of the default branch (for deployments tracking `:unstable`). Release tags are literal Docker tags; `v1.0.0` remains `:v1.0.0`.
 - Main/default-branch runs cancel older runs in their concurrency group. PRs
   are grouped by ref; release runs use separate groups and are not cancelled.
 - Cleanup never deletes versions with `latest`, a release tag, or any other

@@ -189,9 +189,15 @@ jobs:
   # Set the action secrets KOMODO_WEBHOOK_URL (the procedure's GitLab listener
   # URL, ending in /<default branch>) and KOMODO_WEBHOOK_SECRET; without them
   # this job does nothing. Both are secrets so the Komodo address stays private.
+  # With the action variable KOMODO_NOTIFY_UNSTABLE set to true it also fires
+  # after each published unstable build of the default branch.
   notify-komodo:
     needs: [publish, retag]
-    if: always() && github.event_name == 'release' && (needs.publish.result == 'success' || needs.retag.result == 'success')
+    if: >-
+      always() && (
+        (github.event_name == 'release' && (needs.publish.result == 'success' || needs.retag.result == 'success')) ||
+        (vars.KOMODO_NOTIFY_UNSTABLE == 'true' && github.event_name == 'push' && needs.publish.result == 'success')
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
