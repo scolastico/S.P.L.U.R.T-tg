@@ -26,6 +26,7 @@
 #include "modular_babylon/code/research.dm"
 #include "modular_babylon/code/world_players.dm"
 #include "modular_babylon/code/interface.dm"
+#include "modular_babylon/code/music.dm"
 #ifdef BABYLON_TESTING
 #include "modular_babylon/code/testing.dm"
 #endif

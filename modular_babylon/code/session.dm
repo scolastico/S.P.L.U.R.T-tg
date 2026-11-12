@@ -75,6 +75,7 @@
 					ensure_player(student.ckey)
 				if(!busy)
 					student.babylon_check_afk(afk_timeout)
+				student.babylon_update_music()
 			catch(var/exception/error)
 				babylon_loop_failed("player [student?.ckey]", error)
 		for(var/player_key in player_sessions)

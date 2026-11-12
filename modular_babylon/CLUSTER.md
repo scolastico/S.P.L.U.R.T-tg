@@ -361,6 +361,38 @@ connection parameters cannot request builder access. Members added while
 visiting must reconnect through the lobby to enter as players. Visitors count
 toward the world capacity and online population and follow its AFK timeout.
 
+## Server music
+
+Worlds can play music that lives only on the server, never in this repository, so
+licensed tracks (for example from a music subscription) stay server specific. Put
+tracks into the `babylon-music` volume (mounted read only at `/music`; another path
+with `BABYLON_MUSIC_DIRECTORY`). The folder a track is in decides where it plays:
+
+```
+/music/space/                  outside the station
+/music/station/                inside, wherever no more specific folder has tracks
+/music/engineering/            a department of the station's area tree
+/music/engineering/engine/     a single area; the most specific folder with tracks wins
+```
+
+Folder names follow the station's areas below `/area/ruin/space/bb13/`: `bridge`,
+`engineering` (`atmos`, `engine`, `vault` ...), `hallway`, `medical` (`genetics`),
+`research` (`toxins`), `security` and `service` (`botany`, `chapel`, `kitchen`).
+Files directly in `/music` are ignored. Formats: `.ogg`, `.mp3` and `.wav`.
+
+Tracks play one after another in random order with a 30-second pause; a new place's
+music takes over after the player stays there 5 seconds, so walking through a door does
+not cut it. Players set the volume (or turn it off with 0) with **Jukebox volume** in
+the game preferences. Worlds scan the folder when they start, so new tracks reach a
+world on its next start. Without the folder nothing plays and nothing else changes.
+
+To fill the volume on the host, for example:
+
+```sh
+docker volume inspect <project>_babylon-music --format '{{ .Mountpoint }}'
+sudo mkdir -p <mountpoint>/space && sudo cp my-tracks/*.ogg <mountpoint>/space/
+```
+
 ## AFK disconnection
 
 Worlds disconnect inactive players after 900 seconds (15 minutes) by default.

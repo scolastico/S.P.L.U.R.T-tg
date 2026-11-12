@@ -284,6 +284,28 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	qdel(crate)
 	return result
 
+/datum/babylon_save/proc/test_music_folders()
+	var/list/result = list()
+	var/datum/babylon_music/music = new
+	music.root = "data/babylon_music_test/"
+	fdel(music.root)
+	for(var/track in list("space/a.ogg", "station/b.mp3", "engineering/engine/c.wav", "loose.ogg", "station/notes.txt"))
+		text2file("", "[music.root][track]")
+	music.scan_folder("", 0)
+	result["folders_scanned"] = length(music.tracks) == 3 && length(music.tracks["station"]) == 1
+	// The wreck has holes; a space tile inside a room rightly counts as space, so use floors.
+	var/turf/engine = locate(/turf/open/floor) in get_area_turfs(/area/ruin/space/bb13/engineering/engine, station_z)
+	var/turf/hallway = locate(/turf/open/floor) in get_area_turfs(/area/ruin/space/bb13/hallway, station_z, TRUE)
+	var/turf/void
+	for(var/turf/open/space/candidate in block(locate(1, 1, station_z), locate(world.maxx, 5, station_z)))
+		void = candidate
+		break
+	result["engine_room_folder"] = music.folder_for(engine) == "engineering/engine"
+	result["hallway_falls_back_to_station"] = music.folder_for(hallway) == "station"
+	result["space_folder"] = !!void && music.folder_for(void) == "space"
+	fdel(music.root)
+	return result
+
 /datum/babylon_save/proc/test_no_storyteller()
 	var/list/result = list()
 	result["babylon_storyteller"] = SSgamemode.storyteller?.type == /datum/storyteller/babylon

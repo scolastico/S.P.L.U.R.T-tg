@@ -93,7 +93,9 @@ def settings(env=None, runtime=Path('/run/babylon'), template=ROOT):
                   bind_address='0.0.0.0', lobby_address=address, lobby_secret=secret, admins=admins,
                   data_directory=env.get('BABYLON_DATA_DIRECTORY', '/data'),
                   template_directory=str(template), config_directory=str(runtime / 'game-config'),
-                  dreamdaemon='/opt/byond/bin/DreamDaemon', port_first=first, port_last=last)
+                  dreamdaemon='/opt/byond/bin/DreamDaemon', port_first=first, port_last=last,
+                  # Optional server-side music (see CLUSTER.md); worlds play nothing without it.
+                  music_directory=env.get('BABYLON_MUSIC_DIRECTORY', '/music').strip())
     # Only the lobby is ever listed; child worlds run with DreamDaemon -invisible.
     lobby = dict(api='http://127.0.0.1:%s' % values['api_port'], secret=secret, port=values['lobby_port'],
                  name=name, hub_listed=listed in ('true', '1', 'yes'), hub=hub, hub_password=hub_password,

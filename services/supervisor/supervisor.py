@@ -87,6 +87,13 @@ class Driver:
         self.config = config
         self.processes = {}
 
+    def music_param(self):
+        """The server's music folder for the worlds, only if it exists (it is optional)."""
+        music = self.config.get("music_directory")
+        if music and Path(music).is_dir():
+            return {"babylon-music": str(Path(music).resolve())}
+        return {}
+
     def prepare(self, world, run):
         template = Path(self.config["template_directory"]).resolve()
         root = Path(self.config["data_directory"]).resolve() / "worlds" / world["id"]
@@ -135,7 +142,8 @@ class Driver:
                             "babylon-run": run["id"], "babylon-secret": run["secret"],
                             "babylon-api": f"http://127.0.0.1:{self.config['listen_port']}",
                             "babylon-lobby": self.config["lobby_address"],
-                            "babylon-afk-timeout": self.config.get("afk_timeout_seconds", 900)})
+                            "babylon-afk-timeout": self.config.get("afk_timeout_seconds", 900),
+                            **self.music_param()})
         log = open(root / "daemon.log", "ab", buffering=0)
         try:
             process = subprocess.Popen([self.config["dreamdaemon"], "babylon.dmb", str(run["port"]),

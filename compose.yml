@@ -58,6 +58,9 @@ services:
       BABYLON_SHUTDOWN_TIMEOUT_SECONDS: ${BABYLON_SHUTDOWN_TIMEOUT_SECONDS:-180}
     volumes:
       - babylon-data:/data
+      # Optional music, read only; see "Server music" in modular_babylon/CLUSTER.md.
+      - babylon-music:/music:ro
 
 volumes:
   babylon-data:
+  babylon-music:

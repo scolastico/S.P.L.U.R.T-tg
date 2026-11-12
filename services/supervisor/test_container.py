@@ -189,3 +189,12 @@ class BabylonDmStyle(unittest.TestCase):
                      for number, line in enumerate(path.read_text().splitlines(), 1)
                      if pattern.search(line) and not re.search(r"\(([^()]*) in ", line)]
         self.assertEqual(offenders, [])
+
+
+class ServerMusic(unittest.TestCase):
+    def test_worlds_get_the_music_folder_only_when_it_exists(self):
+        from supervisor import Driver
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(Driver({"music_directory": folder}).music_param(), {"babylon-music": str(Path(folder).resolve())})
+        self.assertEqual(Driver({"music_directory": "/nonexistent/babylon-music"}).music_param(), {})
+        self.assertEqual(Driver({}).music_param(), {})
