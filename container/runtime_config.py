@@ -158,7 +158,7 @@ def discord_settings(env, address='', data_directory='/data'):
         'staff_roles': id_list(env, 'BABYLON_DISCORD_STAFF_ROLES'),
         'ticket_category': snowflake(env, 'BABYLON_DISCORD_TICKET_CATEGORY'),
         'linked_role': snowflake(env, 'BABYLON_DISCORD_LINKED_ROLE'),
-        'voice_room_name': env.get('BABYLON_DISCORD_VOICE_ROOM_NAME', "\U0001f50a\u2503{name}'s room")[:90] or "{name}'s room",
+        'voice_room_name': env.get('BABYLON_DISCORD_VOICE_ROOM_NAME', "{name}'s room")[:90] or "{name}'s room",
         'invite': invite,
         'join_url': join_url,
         'address': address,

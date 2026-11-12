@@ -218,6 +218,39 @@ class BotHelpers(unittest.TestCase):
         source = (Path(__file__).parent / "discord_bot.py").read_text()
         self.assertEqual(source.count("while not self.is_closed()"), 1, "loop through BabylonBot.repeat")
 
+    def audit_entries(self, entry):
+        import asyncio
+        sent = []
+
+        async def send(key, **message):
+            sent.append((key, message["embed"].description))
+
+        client = types.SimpleNamespace(features={"logs"}, settings={"guild_id": 1}, send=send)
+        asyncio.run(self.bot.BabylonBot.on_audit_log_entry_create(client, entry))
+        return sent
+
+    def test_audit_entries_without_a_target_do_not_break_the_log(self):
+        discord = self.bot.discord
+
+        class Entry:
+            guild = types.SimpleNamespace(id=1)
+            user_id = 5
+            reason = None
+
+            def __init__(self, action, target=None):
+                self.action, self._target = action, target
+
+            @property
+            def target(self):
+                if self._target is None:
+                    raise TypeError("int() argument must be ... not 'NoneType'")
+                return self._target
+
+        self.assertEqual(self.audit_entries(Entry(discord.AuditLogAction.channel_update)), [])
+        self.assertEqual(self.bot.audit_target(Entry(discord.AuditLogAction.kick)), "unknown")
+        (key, text), = self.audit_entries(Entry(discord.AuditLogAction.kick, types.SimpleNamespace(id=42)))
+        self.assertEqual((key, text), ("mod_log", "👢 <@42> was kicked by <@5>"))
+
     def test_raw_http_goes_through_request_only(self):
         # discord.py's http helpers take multipart parameters; calling them with keywords
         # fails at runtime only. Raw calls must use http.request with a Route.

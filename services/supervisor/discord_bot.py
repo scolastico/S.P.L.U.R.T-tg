@@ -75,6 +75,16 @@ def status_embed(snapshot, settings, online=True):
     return embed
 
 
+def audit_target(entry):
+    """The entry's target as a mention. discord.py resolves entry.target lazily and raises
+    for entries without a target id, so the lookup must never break the handler."""
+    try:
+        target_id = getattr(entry.target, "id", None)
+    except (TypeError, ValueError, AttributeError):
+        target_id = None
+    return f"<@{target_id}>" if target_id else "unknown"
+
+
 def chunk_lines(lines, limit=1900):
     """Group log lines into code blocks below Discord's message size."""
     blocks, current = [], ""
@@ -571,8 +581,11 @@ class BabylonBot(discord.Client):
         if "logs" not in self.features or entry.guild.id != self.settings["guild_id"]:
             return
         action = entry.action
+        A = discord.AuditLogAction
+        if action not in (A.kick, A.ban, A.unban, A.member_update):
+            return
         moderator = f"<@{entry.user_id}>" if entry.user_id else "someone"
-        target = f"<@{entry.target.id}>" if getattr(entry.target, "id", None) else "unknown"
+        target = audit_target(entry)
         reason = f"\nReason: {clip(entry.reason, 500)}" if entry.reason else ""
         if action == discord.AuditLogAction.kick:
             text, color = f"👢 {target} was kicked by {moderator}", AMBER
@@ -693,7 +706,7 @@ class BabylonBot(discord.Client):
                     overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True,
                                                                    read_message_history=True, attach_files=True,
                                                                    manage_messages=True)
-            channel = await guild.create_text_channel(f"🎫┃{number:04d}-{ticket_slug(member.name)}", category=category,
+            channel = await guild.create_text_channel(f"ticket-{number:04d}-{ticket_slug(member.name)}", category=category,
                                                       overwrites=overwrites, topic=clip(f"Ticket of {member}: {topic}", 1000),
                                                       reason=f"Ticket #{number} for {member}")
             self.tickets["open"][channel.id] = {"number": number, "owner": member.id, "owner_name": str(member),
