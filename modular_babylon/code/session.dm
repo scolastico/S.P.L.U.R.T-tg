@@ -53,23 +53,47 @@
 			computer.open_program(null, program, FALSE)
 	ready = TRUE
 	next_autosave_at = world.time + 15 MINUTES
+	// One runtime error would otherwise end this loop for the rest of the run: nobody joining
+	// afterwards is put into a drone, and they stay on the title screen with its music.
 	while(TRUE)
-		if(!draining)
-			for(var/client/student in GLOB.clients)
+		try
+			tick_world()
+		catch(var/exception/error)
+			babylon_loop_failed("world tick", error)
+		sleep(1 SECONDS)
+
+/datum/babylon_save/proc/tick_world()
+	if(!draining)
+		for(var/client/student in GLOB.clients)
+			// Each player on their own, so one player's error cannot block everyone else.
+			try
 				if(student.babylon_showcase_visitor)
 					ensure_showcase_visitor(student)
 				else
 					ensure_player(student.ckey)
 				if(!busy)
 					student.babylon_check_afk(afk_timeout)
-			for(var/player_key in player_sessions)
-				var/datum/babylon_save/player = player_sessions[player_key]
+			catch(var/exception/error)
+				babylon_loop_failed("player [student?.ckey]", error)
+		for(var/player_key in player_sessions)
+			var/datum/babylon_save/player = player_sessions[player_key]
+			try
 				tick_player(player, GLOB.directory[player_key])
-			tick_survival()
-		if(length(GLOB.clients) && world.time >= next_autosave_at - 30 SECONDS && !autosave_countdown_active && !draining)
-			next_autosave_at = world.time + 15 MINUTES + 30 SECONDS
-			INVOKE_ASYNC(src, PROC_REF(countdown_autosave))
-		sleep(1 SECONDS)
+			catch(var/exception/error)
+				babylon_loop_failed("player [player_key]", error)
+		tick_survival()
+	if(length(GLOB.clients) && world.time >= next_autosave_at - 30 SECONDS && !autosave_countdown_active && !draining)
+		next_autosave_at = world.time + 15 MINUTES + 30 SECONDS
+		INVOKE_ASYNC(src, PROC_REF(countdown_autosave))
+
+/// Logs a failed loop step once a minute per step, so a recurring error cannot flood the log.
+/proc/babylon_loop_failed(step, exception/error)
+	var/static/list/last_logged = list()
+	if(world.time < (last_logged[step] || -INFINITY) + 1 MINUTES)
+		return
+	last_logged[step] = world.time
+	log_world("Babylon [step] failed: [error] ([error?.file]:[error?.line])")
+	log_runtime("Babylon [step] failed: [error] ([error?.file]:[error?.line])")
 
 // Keep the possession/reconnect loop responsive during the warning period.
 // The authenticated control API may allow an unoccupied drone for isolated tests.

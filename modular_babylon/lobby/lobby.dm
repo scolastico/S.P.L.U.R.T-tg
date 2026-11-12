@@ -48,7 +48,11 @@ var/global/list/lobby_config
 		visibility = 0
 	spawn(0)
 		while(1)
-			update_hub_status()
+			// A runtime error must not stop the hub status for the rest of the run.
+			try
+				update_hub_status()
+			catch(var/exception/error)
+				world.log << "Updating the hub status failed: [error] ([error.file]:[error.line])"
 			sleep(300)
 
 // The hub only counts clients connected to the lobby itself, so the status text
@@ -134,7 +138,11 @@ var/global/list/lobby_config
 	spawn(50)
 		while(client && generation == poll_generation)
 			if(!busy)
-				show_browser()
+				// A runtime error must not stop this player's lobby from refreshing.
+				try
+					show_browser()
+				catch(var/exception/error)
+					world.log << "Refreshing the lobby of [ckey] failed: [error] ([error.file]:[error.line])"
 			sleep(50)
 
 /mob/lobby/Logout()
