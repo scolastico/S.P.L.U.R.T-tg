@@ -34,8 +34,8 @@ Your equipment is finite. Replacement shells are empty; recover your tools or ma
 /datum/action/babylon_return_to_lobby
 	name = "Return to lobby"
 	desc = "Return to the Babylon world browser. Your body and belongings stay in this world."
-	button_icon = 'icons/hud/screen_ghost.dmi'
-	button_icon_state = "reenter_corpse"
+	button_icon = 'modular_babylon/icons/babylon_actions.dmi'
+	button_icon_state = "return_lobby"
 	show_to_observers = FALSE
 
 /datum/action/babylon_return_to_lobby/Trigger(mob/clicker, trigger_flags)
