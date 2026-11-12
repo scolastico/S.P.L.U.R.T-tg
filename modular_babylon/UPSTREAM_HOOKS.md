@@ -33,6 +33,14 @@ game's external admin PM (`TgsPm`). All through overrides. After an upstream
 merge, re-check `MessageNoRecipient`, `reply_to_admins_notification`,
 `receive_ahelp`, `TgsPm` and the Skyrat mentor module against it.
 
+`modular_babylon/code/research.dm` replaces the research point bank and queue:
+a techweb researches one selected node at a time, all income (through
+`add_point_list`) goes towards it capped at its price, `research_points` holds
+that progress, income without a target is dropped and switching targets starts
+over. The target is saved with the world. After an upstream merge, re-check
+`add_point_list`, `research_node`, `complete_experiment`, the queue procs and
+the R&D console / PDA `research_node` and `ui_data` against it.
+
 | Upstream file | Purpose |
 | --- | --- |
 | `code/controllers/master.dm` | Wait for restoration and final subsystem initialization before physics runs; support the isolated-test hold parameter. |
@@ -50,6 +58,7 @@ merge, re-check `MessageNoRecipient`, `reply_to_admins_notification`,
 | `code/modules/atmospherics/machinery/components/unary_devices/airlock_pump.dm` | Skip fresh-install door animations for saved pumps; rebuild their saved connections after restoration. |
 | `code/datums/materials/material_container/material_container.dm` | Discard invalid material keys before UI generation and stock accounting, preserving valid quantities. |
 | `tgui/packages/tgui-panel/settings/atoms.ts`, `migration.ts` | Default the chat panel (and with it the window) to the dark theme, and apply the default theme on a player's first start. Players' saved choices are kept. |
+| `tgui/packages/tgui/interfaces/Techweb/Content.tsx`, `nodes/TechNode.tsx`, `types.ts` | When the server sends `babylon_research`, show the node being researched instead of point balances and the queue, a Research / Researching button instead of research and queue buttons, and progress only on that node. Without it, the upstream screens are unchanged. |
 | `tgui/packages/tgui/interfaces/VaultController.tsx` | Render the Babylon generation interlock (live generation, ignored battery output, hold timer) when the controller sends those fields; the upstream charge view is unchanged otherwise. Rebuild the TGUI bundle after editing. |
 
 Keep these patches small. Do not copy complete upstream files from the local

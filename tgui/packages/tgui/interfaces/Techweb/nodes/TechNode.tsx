@@ -25,6 +25,7 @@ type Props = {
 export function TechNode(props: Props) {
   const { act, data } = useRemappedBackend();
   const {
+    babylon_research,
     node_cache,
     design_cache,
     SHEET_MATERIAL_AMOUNT,
@@ -57,6 +58,10 @@ export function TechNode(props: Props) {
     discount_boosts,
   } = node_cache[id];
   const [techwebRoute, setTechwebRoute] = useTechWebRoute();
+  // BABYLON13: the points are the progress of the one node being researched.
+  const isTarget = babylon_research?.target === id;
+  const nodePoints: Record<string, number> =
+    babylon_research && !isTarget ? {} : (points as Record<string, number>);
 
   const expcompl = required_experiments.filter(
     (x) => experiments[x]?.completed,
@@ -113,7 +118,30 @@ export function TechNode(props: Props) {
       buttons={
         !nocontrols && (
           <>
-            {tier > 0 &&
+            {babylon_research &&
+              tier > 0 &&
+              (isTarget ? (
+                <Button icon="flask" selected>
+                  Researching
+                </Button>
+              ) : (
+                <Button
+                  icon="lightbulb"
+                  disabled={tier > 1 || !have_experiments_done}
+                  tooltip={
+                    !have_experiments_done
+                      ? 'Complete the required experiments first.'
+                      : babylon_research.target
+                        ? 'Research this instead; progress on the current node is lost.'
+                        : undefined
+                  }
+                  onClick={() => act('researchNode', { node_id: id })}
+                >
+                  Research
+                </Button>
+              ))}
+            {!babylon_research &&
+              tier > 0 &&
               (can_unlock && (is_free || queue_nodes.length === 0) ? (
                 <Button
                   icon="lightbulb"
@@ -168,7 +196,7 @@ export function TechNode(props: Props) {
               0,
               k.value - nodeDiscountExperiments - nodeDiscountBoosts,
             );
-            const nodeProg = Math.min(reqPts, points[k.type]) || 0;
+            const nodeProg = Math.min(reqPts, nodePoints[k.type]) || 0;
             return (
               <Stack.Item key={k.type} grow basis={0}>
                 <ProgressBar
@@ -180,7 +208,7 @@ export function TechNode(props: Props) {
                   value={
                     reqPts === 0
                       ? 1
-                      : Math.min(1, (points[k.type] || 0) / reqPts)
+                      : Math.min(1, (nodePoints[k.type] || 0) / reqPts)
                   }
                 >
                   {point_types_abbreviations[k.type]} ({nodeProg}/{reqPts})

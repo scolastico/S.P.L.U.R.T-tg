@@ -51,6 +51,8 @@ type StaticData = {
 };
 
 export type TechWebData = {
+  /** BABYLON13: one node is researched at a time, with no point bank and no queue. */
+  babylon_research?: { target: string };
   d_disk: DesignDisk | null;
   experiments: Record<string, ExperimentData>;
   locked: BooleanLike;

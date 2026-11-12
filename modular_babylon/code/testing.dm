@@ -222,6 +222,39 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	result["ooc_logged"] = !!CONFIG_GET(flag/log_ooc)
 	return result
 
+/datum/babylon_save/proc/test_research()
+	var/list/result = list()
+	var/datum/techweb/science/web = locate(/datum/techweb/science) in SSresearch.techwebs
+	var/list/candidates = list()
+	for(var/id in web?.available_nodes)
+		var/datum/techweb_node/node = SSresearch.techweb_node_by_id(id)
+		var/list/price = node.get_price(web)
+		if(!web.researched_nodes[id] && !web.hidden_nodes[id] && !length(node.required_experiments) && price[TECHWEB_POINT_TYPE_GENERIC] > 10 && length(price) == 1)
+			candidates += node
+	result["two_candidate_nodes"] = length(candidates) >= 2
+	if(length(candidates) < 2)
+		return result
+	var/datum/techweb_node/first = candidates[1]
+	var/datum/techweb_node/second = candidates[2]
+	var/first_price = first.get_price(web)[TECHWEB_POINT_TYPE_GENERIC]
+	var/saved_target = web.babylon_target
+	web.babylon_target = null
+	web.add_point_list(list(TECHWEB_POINT_TYPE_GENERIC = 5))
+	result["no_target_no_bank"] = web.research_points[TECHWEB_POINT_TYPE_GENERIC] == 0
+	result["queue_refused"] = !web.enqueue_node(first.id, null) && !length(web.research_queue_nodes)
+	result["selected"] = web.babylon_select(first.id) && web.babylon_target == first.id
+	web.add_point_list(list(TECHWEB_POINT_TYPE_GENERIC = 5))
+	result["income_counts_for_target"] = web.research_points[TECHWEB_POINT_TYPE_GENERIC] == 5
+	web.babylon_select(second.id)
+	result["switching_resets_progress"] = web.research_points[TECHWEB_POINT_TYPE_GENERIC] == 0 && web.babylon_target == second.id
+	web.babylon_select(first.id)
+	web.add_point_list(list(TECHWEB_POINT_TYPE_GENERIC = first_price * 10))
+	result["researched_when_paid"] = !!web.researched_nodes[first.id] && !web.babylon_target
+	result["excess_not_banked"] = web.research_points[TECHWEB_POINT_TYPE_GENERIC] == 0
+	web.unresearch_node(first)
+	web.babylon_target = saved_target
+	return result
+
 /datum/babylon_save/proc/test_no_storyteller()
 	var/list/result = list()
 	result["babylon_storyteller"] = SSgamemode.storyteller?.type == /datum/storyteller/babylon

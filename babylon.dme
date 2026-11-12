@@ -23,6 +23,7 @@
 #include "modular_babylon/code/links.dm"
 #include "modular_babylon/code/storyteller.dm"
 #include "modular_babylon/code/moderation.dm"
+#include "modular_babylon/code/research.dm"
 #ifdef BABYLON_TESTING
 #include "modular_babylon/code/testing.dm"
 #endif

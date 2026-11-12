@@ -118,6 +118,9 @@ def main():
         moderation = call(run, "session", "test_moderation")
         moderation = {entry["entry"]: entry["value"] for entry in moderation["entries"]}
         assert moderation and all(moderation.values()), moderation
+        research = call(run, "session", "test_research")
+        research = {entry["entry"]: entry["value"] for entry in research["entries"]}
+        assert research and all(research.values()), research
         storyteller = call(run, "session", "test_no_storyteller")
         storyteller = {entry["entry"]: entry["value"] for entry in storyteller["entries"]}
         assert storyteller and all(storyteller.values()), storyteller

@@ -7,6 +7,7 @@ import { TechwebRouter } from './Router';
 export function TechwebContent(props) {
   const { act, data } = useRemappedBackend();
   const {
+    babylon_research,
     d_disk,
     node_cache,
     points_last_tick,
@@ -33,24 +34,45 @@ export function TechwebContent(props) {
                   {sec_protocols ? 'Engaged' : 'Disengaged'}
                 </span>
               </LabeledList.Item>
-              {Object.keys(points).map((k) => (
-                <LabeledList.Item key={k} label={point_types_abbreviations[k]}>
-                  <b>{points[k]}</b>
-                  {!!points_last_tick[k] && ` (+${points_last_tick[k]}/sec)`}
+              {babylon_research ? (
+                <LabeledList.Item label="Researching">
+                  {babylon_research.target ? (
+                    <b>{node_cache[babylon_research.target]?.name}</b>
+                  ) : (
+                    'Nothing. Pick a node to research; points are only generated for it.'
+                  )}
+                  {Object.keys(points_last_tick)
+                    .filter((k) => points_last_tick[k])
+                    .map(
+                      (k) =>
+                        ` (+${points_last_tick[k]} ${point_types_abbreviations[k]}/sec)`,
+                    )}
                 </LabeledList.Item>
-              ))}
-              <LabeledList.Item label="Queue">
-                {queue_nodes.length !== 0
-                  ? Object.keys(queue_nodes).map((node_id) => (
-                      <Button
-                        key={node_id}
-                        tooltip={`Added by: ${queue_nodes[node_id]}`}
-                      >
-                        {node_cache[node_id].name}
-                      </Button>
-                    ))
-                  : 'Empty'}
-              </LabeledList.Item>
+              ) : (
+                Object.keys(points).map((k) => (
+                  <LabeledList.Item
+                    key={k}
+                    label={point_types_abbreviations[k]}
+                  >
+                    <b>{points[k]}</b>
+                    {!!points_last_tick[k] && ` (+${points_last_tick[k]}/sec)`}
+                  </LabeledList.Item>
+                ))
+              )}
+              {!babylon_research && (
+                <LabeledList.Item label="Queue">
+                  {queue_nodes.length !== 0
+                    ? Object.keys(queue_nodes).map((node_id) => (
+                        <Button
+                          key={node_id}
+                          tooltip={`Added by: ${queue_nodes[node_id]}`}
+                        >
+                          {node_cache[node_id].name}
+                        </Button>
+                      ))
+                    : 'Empty'}
+                </LabeledList.Item>
+              )}
             </LabeledList>
           </Flex.Item>
           <Flex.Item grow />

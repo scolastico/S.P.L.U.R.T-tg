@@ -380,7 +380,7 @@
 	state["players"] = players
 	var/datum/techweb/science/research = locate(/datum/techweb/science) in SSresearch.techwebs
 	if(research)
-		state["research"] = list("nodes" = research.researched_nodes.Copy(), "designs" = research.researched_designs.Copy(), "points" = research.research_points.Copy())
+		state["research"] = list("nodes" = research.researched_nodes.Copy(), "designs" = research.researched_designs.Copy(), "points" = research.research_points.Copy(), "target" = research.babylon_target, "target_by" = research.babylon_target_by, "target_location" = research.babylon_target_location)
 	state["sun"] = list("azimuth" = SSsun.azimuth, "azimuth_mod" = SSsun.azimuth_mod, "base_rotation" = SSsun.base_rotation)
 	state["lore"] = GLOB.babylon_lore.snapshot()
 	checkpoint_capture_ms = (REALTIMEOFDAY - checkpoint_started) * 100
@@ -650,6 +650,12 @@
 			research.add_design_by_id(design)
 		research.research_points = research_data["points"]
 		research.recalculate_nodes()
+		// research_points is the progress towards the saved target (research.dm). Older saves
+		// have no target, so their banked points are dropped; an invalid target is cleared.
+		research.babylon_target = research_data["target"]
+		research.babylon_target_by = research_data["target_by"]
+		research.babylon_target_location = research_data["target_location"]
+		research.babylon_try_finish()
 	GLOB.babylon_lore.restore(state["lore"])
 	to_chat(world, span_notice("Babylon resumed from [last_save]."))
 
