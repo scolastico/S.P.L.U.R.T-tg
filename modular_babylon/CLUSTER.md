@@ -75,6 +75,41 @@ handoffs to worlds, failed actions) and `[world <name> <id>]` (each child
 world's DreamDaemon output, including its round `dd.log` with runtime errors).
 The per-world files under `/data/worlds/<id>/` stay as before.
 
+### Discord
+
+The supervisor also runs an optional Discord bot (discord.py, in the same
+process). It starts when `BABYLON_DISCORD_TOKEN` and `BABYLON_DISCORD_GUILD_ID`
+are set; `BABYLON_DISCORD_FEATURES` picks what it does:
+
+| Feature | What it does | Needs |
+| --- | --- | --- |
+| `link` | `/link`, `/unlink`; moderators get `/whois`. Links a Discord account to a BYOND account. | |
+| `roles` | Buttons with `custom_id` `babylon:role:<role id>` toggle a role from `BABYLON_DISCORD_SELF_ROLES`; `babylon:color:<role id>` picks one of `BABYLON_DISCORD_COLOR_ROLES` (exclusive), `babylon:color:none` removes it. | role IDs |
+| `voice` | Joining the voice lobby creates a room for the member, which is deleted when empty. | `_VOICE_LOBBY_CHANNEL` |
+| `logs` | Member, message, voice and moderation logs, each in its own channel (unset channels are skipped). | log channels |
+| `status` | A status message (players, running worlds; private worlds stay anonymous), updated every minute and marked offline on shutdown. | `_STATUS_CHANNEL` |
+| `gamelog` | Every `[supervisor]` log line, batched into a channel. | `_GAME_LOG_CHANNEL` |
+| `tickets` | An "Open a ticket" button in a read-only channel opens a private channel for the member and `BABYLON_DISCORD_STAFF_ROLES`. Creator and staff can add people; closing it sends a `.txt` transcript to the creator by DM and to the ticket log. | `_TICKET_PANEL_CHANNEL`, `_TICKET_LOG_CHANNEL`, `_TICKET_CATEGORY`, `_STAFF_ROLES` |
+
+`/status` is always available. In the developer portal, enable the
+**Server Members Intent** for `link` and `logs`, and the **Message Content
+Intent** for `logs`; without them Discord refuses the connection and the bot
+stays off (the game keeps running). The bot's role must be above every role it
+assigns. Voice rooms and open tickets are remembered in the data volume.
+
+Linking: **Link Discord** in the lobby shows a one-time code (valid 10
+minutes) to type as `/link code:ABCD-EFGH`. One Discord account links to one
+BYOND account. `BABYLON_REQUIRE_DISCORD_TO_CREATE` and
+`BABYLON_REQUIRE_DISCORD_TO_JOIN` (both off by default, independent) make a
+linked account a condition for creating, and for joining or starting worlds;
+lobby admins are exempt. While the bot's member cache is ready, a linked
+account must also still be on the Discord server. The lobby shows the link
+state and the requirements, with Link, Unlink and Discord invite buttons.
+
+`BABYLON_DISCORD_INVITE` also adds a **Discord** button to the in-game escape
+menu (Resources); `BABYLON_RULES_URL` sets its **Rules** button. Babylon hides
+upstream's /tg/station wiki, forum, rules and config links.
+
 All supported settings and defaults are listed in `.env.example`: lobby and
 world ports, internal API port, admin CSV, global/per-owner world limits,
 player limits, retained checkpoints, unused-world expiry, admission lifetime,

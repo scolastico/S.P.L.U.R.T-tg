@@ -14,7 +14,7 @@ import time
 import urllib.request
 from urllib.parse import urlencode
 
-from runtime_config import ROOT, write_settings
+from runtime_config import ROOT, discord_settings, write_settings
 from supervisor import Supervisor, serve
 from stop_worlds import stop_worlds
 from logstream import log, pump
@@ -47,6 +47,11 @@ def main():
     service = Supervisor(config)
     api = threading.Thread(target=serve, args=(config, service), daemon=True)
     api.start()
+    bot = None
+    bot_settings = discord_settings(os.environ, config['lobby_address'], config['data_directory'])
+    if bot_settings['enabled']:
+        from discord_bot import BotHandle  # Only needs discord.py when the bot is on.
+        bot = BotHandle(bot_settings, service).start()
     directory = RUNTIME / 'lobby'
     directory.mkdir(exist_ok=True)
     for ext in ('dmb', 'rsc'):
@@ -68,6 +73,9 @@ def main():
             stopping.set()
             exit_code = 1
         if stopping.wait(.5):
+            if bot:
+                bot.stop()  # Marks the status message offline.
+                bot = None
             if menu.poll() is None:
                 menu.terminate()  # Lobby has no gameplay state; close admissions first.
                 menu.wait(timeout=10)

@@ -60,6 +60,40 @@ class ContainerConfiguration(unittest.TestCase):
         self.assertEqual(runtime.settings(dict(BABYLON_HUB_STATUS=template))[1]['hub_status'], template)
         self.assertEqual(runtime.settings(dict(BABYLON_HUB_STATUS=' '))[1]['hub_status'], lobby['hub_status'])
 
+    def test_discord_is_off_without_a_token_and_never_stored_with_it(self):
+        config, lobby = runtime.settings({})[:2]
+        self.assertEqual(config['discord'], dict(link=False, require_create=False, require_join=False, invite=''))
+        env = dict(BABYLON_DISCORD_TOKEN='secret-token', BABYLON_DISCORD_GUILD_ID='1570426548362678402',
+                   BABYLON_DISCORD_FEATURES='link,roles,tickets,status', BABYLON_DISCORD_SELF_ROLES='111111, 222222',
+                   BABYLON_DISCORD_COLOR_ROLES='333333', BABYLON_DISCORD_STAFF_ROLES='444444',
+                   BABYLON_DISCORD_TICKET_CATEGORY='555555', BABYLON_DISCORD_TICKET_PANEL_CHANNEL='666666',
+                   BABYLON_DISCORD_TICKET_LOG_CHANNEL='777777', BABYLON_DISCORD_STATUS_CHANNEL='888888',
+                   BABYLON_DISCORD_INVITE='https://discord.gg/example', BABYLON_REQUIRE_DISCORD_TO_JOIN='true')
+        bot = runtime.discord_settings(env, 'byond://host:1361')
+        self.assertEqual((bot['self_roles'], bot['color_roles'], bot['staff_roles']), ([111111, 222222], [333333], [444444]))
+        self.assertEqual(bot['channels'], dict(status=888888, ticket_panel=666666, ticket_log=777777))
+        config = runtime.settings(env)[0]
+        self.assertEqual(config['discord'], dict(link=True, require_create=False, require_join=True,
+                                                 invite='https://discord.gg/example'))
+        self.assertNotIn('secret-token', json.dumps(config))
+        self.assertEqual(runtime.discord_settings(dict(BABYLON_DISCORD_TOKEN='t', BABYLON_DISCORD_GUILD_ID='123456'))['features'],
+                         ['link', 'roles'])
+
+    def test_invalid_discord_settings_are_rejected(self):
+        base = dict(BABYLON_DISCORD_TOKEN='t', BABYLON_DISCORD_GUILD_ID='123456')
+        for values in (dict(BABYLON_DISCORD_TOKEN='t'),
+                       dict(base, BABYLON_DISCORD_FEATURES='link,dance'),
+                       dict(base, BABYLON_DISCORD_FEATURES='voice'),
+                       dict(base, BABYLON_DISCORD_FEATURES='tickets'),
+                       dict(base, BABYLON_DISCORD_FEATURES='roles', BABYLON_REQUIRE_DISCORD_TO_CREATE='true'),
+                       dict(BABYLON_REQUIRE_DISCORD_TO_JOIN='true'),
+                       dict(base, BABYLON_DISCORD_SELF_ROLES='12,abc'),
+                       dict(base, BABYLON_DISCORD_STATUS_CHANNEL='#status'),
+                       dict(base, BABYLON_DISCORD_INVITE='discord.gg/x'),
+                       dict(base, BABYLON_REQUIRE_DISCORD_TO_JOIN='maybe')):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                runtime.discord_settings(values)
+
     def test_invalid_ports_and_unsafe_environment_are_rejected(self):
         for values in (
             dict(BABYLON_API_PORT='1361'), dict(BABYLON_API_PORT='1400'),

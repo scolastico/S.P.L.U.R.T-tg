@@ -30,6 +30,15 @@ class Denied(ValueError):
     pass
 
 
+# Link codes avoid look-alike characters (0/O, 1/I) because players type them.
+LINK_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+LINK_CODE_SECONDS = 600
+
+
+def link_code_hash(code):
+    return hashlib.sha256(re.sub(r"[^A-Z0-9]", "", str(code).upper()).encode()).hexdigest()
+
+
 def ckey(value):
     return re.sub(r"[^a-z0-9]", "", str(value).lower())
 
@@ -186,6 +195,9 @@ class Supervisor:
             CREATE TABLE IF NOT EXISTS sessions (ckey TEXT PRIMARY KEY, world TEXT, run TEXT);
             CREATE TABLE IF NOT EXISTS audit (at REAL, actor TEXT, action TEXT, world TEXT);
             CREATE TABLE IF NOT EXISTS world_deletions (world TEXT PRIMARY KEY);
+            CREATE TABLE IF NOT EXISTS discord_links (ckey TEXT PRIMARY KEY, discord_id TEXT UNIQUE NOT NULL,
+              discord_name TEXT, linked REAL NOT NULL);
+            CREATE TABLE IF NOT EXISTS discord_codes (hash TEXT PRIMARY KEY, ckey TEXT NOT NULL, expires REAL NOT NULL);
         """)
         columns = {row[1] for row in self.db.execute("PRAGMA table_info(worlds)")}
         if "last_used" not in columns:
@@ -194,6 +206,11 @@ class Supervisor:
         self.db.commit()
         self.stop_workers = set()
         self.next_cleanup = 0
+        # Set by the Discord bot: membership(discord_id) -> True/False/None (unknown),
+        # from its member cache only, because it is called while holding the lock.
+        self.discord_membership = None
+        # Set by the Discord bot: called with (ckey, discord_id, linked) after a change.
+        self.discord_link_changed = None
         self.checkpoints = Checkpoints(config["data_directory"], config.get("kept_save_points_per_world", 4))
         # Running children are reconciled by tick; stopped worlds have no writers.
         for row in self.db.execute("SELECT id FROM worlds WHERE id NOT IN (SELECT world FROM runs)"):
@@ -305,6 +322,111 @@ class Supervisor:
             raise Denied("A password is required")
         return name, description, visibility, password, maximum
 
+    # --- Discord account links -------------------------------------------------
+
+    def discord_settings(self):
+        return self.config.get("discord") or {}
+
+    def discord_link(self, account):
+        row = self.row("SELECT * FROM discord_links WHERE ckey=?", (ckey(account),))
+        return dict(row) if row else None
+
+    def discord_state(self, actor):
+        settings = self.discord_settings()
+        link = self.discord_link(actor) if settings.get("link") else None
+        return {"link": bool(settings.get("link")), "linked": bool(link),
+                "name": link["discord_name"] if link else None,
+                "require_create": bool(settings.get("require_create")),
+                "require_join": bool(settings.get("require_join")),
+                "invite": settings.get("invite") or None}
+
+    def require_discord(self, actor, purpose):
+        """Raise Denied if the server requires a linked Discord account for purpose."""
+        settings = self.discord_settings()
+        if not settings.get("require_" + purpose) or actor in self.admins:
+            return
+        verb = "create" if purpose == "create" else "join"
+        link = self.discord_link(actor)
+        if not link:
+            raise Denied(f"Link your Discord account to {verb} worlds: use Link Discord at the top of the lobby.")
+        membership = self.discord_membership
+        if membership and membership(link["discord_id"]) is False:
+            raise Denied(f"Your linked Discord account is not on our Discord server. Rejoin it to {verb} worlds.")
+
+    def discord_code(self, actor):
+        if not self.discord_settings().get("link"):
+            raise Denied("Discord linking is not enabled on this server")
+        code = "".join(secrets.choice(LINK_ALPHABET) for _ in range(8))
+        with self.lock, self.db:
+            self.db.execute("DELETE FROM discord_codes WHERE ckey=? OR expires<=?", (actor, self.clock()))
+            self.db.execute("INSERT INTO discord_codes VALUES(?,?,?)",
+                            (link_code_hash(code), actor, self.clock() + LINK_CODE_SECONDS))
+        log(f"{actor}: requested a Discord link code")
+        return {"ok": True, "code": code[:4] + "-" + code[4:], "expires_in": LINK_CODE_SECONDS,
+                "invite": self.discord_settings().get("invite") or None}
+
+    def redeem_discord_code(self, code, discord_id, discord_name):
+        """Called by the bot for /link. Returns the linked ckey."""
+        discord_id = str(discord_id)
+        if not re.fullmatch(r"\d{5,25}", discord_id):
+            raise Denied("Invalid Discord account")
+        with self.lock, self.db:
+            row = self.row("SELECT * FROM discord_codes WHERE hash=? AND expires>?", (link_code_hash(code), self.clock()))
+            if not row:
+                raise Denied("This code is invalid or has expired. Get a new one with Link Discord in the lobby.")
+            account = row["ckey"]
+            previous = self.row("SELECT ckey FROM discord_links WHERE discord_id=? AND ckey<>?", (discord_id, account))
+            self.db.execute("DELETE FROM discord_codes WHERE ckey=?", (account,))
+            # One Discord account per BYOND account and the other way round.
+            self.db.execute("DELETE FROM discord_links WHERE ckey=? OR discord_id=?", (account, discord_id))
+            self.db.execute("INSERT INTO discord_links VALUES(?,?,?,?)",
+                            (account, discord_id, str(discord_name)[:100], self.clock()))
+            self.audit(account, "discord_link", None)
+        if previous:
+            log(f"{previous['ckey']}: Discord link replaced by {account}")
+        self.notify_discord_link(account, discord_id, True)
+        return account
+
+    def unlink_discord(self, account=None, discord_id=None):
+        """Remove a link by ckey or Discord id. Returns the removed link or None."""
+        with self.lock, self.db:
+            if account is not None:
+                row = self.row("SELECT * FROM discord_links WHERE ckey=?", (ckey(account),))
+            else:
+                row = self.row("SELECT * FROM discord_links WHERE discord_id=?", (str(discord_id),))
+            if not row:
+                return None
+            row = dict(row)
+            self.db.execute("DELETE FROM discord_links WHERE ckey=?", (row["ckey"],))
+            self.audit(row["ckey"], "discord_unlink", None)
+        self.notify_discord_link(row["ckey"], row["discord_id"], False)
+        return row
+
+    def discord_link_by_id(self, discord_id):
+        with self.lock:
+            row = self.row("SELECT * FROM discord_links WHERE discord_id=?", (str(discord_id),))
+        return dict(row) if row else None
+
+    def notify_discord_link(self, account, discord_id, linked):
+        callback = self.discord_link_changed
+        if callback:
+            try:
+                callback(account, discord_id, linked)
+            except Exception as error:
+                log(f"Discord link notification failed: {error}")
+
+    def status_snapshot(self):
+        """Server-wide state for the Discord status message. Private worlds stay anonymous."""
+        with self.lock:
+            rows = self.db.execute("SELECT w.name, w.visibility, w.max_players, r.state, r.players FROM runs r "
+                                   "JOIN worlds w ON w.id=r.world ORDER BY r.started").fetchall()
+            total = self.row("SELECT count(*) n FROM worlds")["n"]
+        worlds = [{"name": row["name"] if row["visibility"] != "private" else None,
+                   "visibility": row["visibility"], "state": row["state"], "max_players": row["max_players"],
+                   "players": len(json.loads(row["players"] or "[]"))} for row in rows]
+        return {"worlds": worlds, "total_worlds": total, "max_running_worlds": self.config["max_running_worlds"],
+                "players": sum(w["players"] for w in worlds if w["state"] in ("starting", "running"))}
+
     def summary(self):
         """Cluster-wide counts for the lobby's hub status; no per-world details."""
         with self.lock:
@@ -321,6 +443,10 @@ class Supervisor:
             raise Denied("Sign in with a BYOND account")
         if action == "delete":
             return self.delete_world(actor, data)
+        if action == "discord_code":
+            return self.discord_code(actor)
+        if action == "discord_unlink":
+            return {"ok": True, "unlinked": bool(self.unlink_discord(actor))}
         with self.lock, self.db:
             if action == "list":
                 worlds = []
@@ -337,9 +463,11 @@ class Supervisor:
                                       error=run["error"] if run else None,
                                       last_active=time.strftime("%Y-%m-%d %H:%M", time.localtime(world["last_used"])))
                 return {"ok": True, "worlds": worlds, "admin": actor in self.admins,
+                        "discord": self.discord_state(actor),
                         "delete_unused_worlds_after_days": self.config.get("delete_unused_worlds_after_days", 60),
                         "limits": {k: v for k, v in self.config.items() if k.startswith("max_")}}
             if action == "create":
+                self.require_discord(actor, "create")
                 count = self.row("SELECT count(*) n FROM worlds WHERE owner=?", (actor,))["n"]
                 if count >= self.config["max_worlds_per_player"]:
                     raise Denied("Your world limit has been reached")
@@ -395,6 +523,7 @@ class Supervisor:
                 return {"ok": True}
             if action != "join":
                 raise Denied("Unknown action")
+            self.require_discord(actor, "join")
             authorized = role != "guest" or world["visibility"] in ("public", "showcase")
             if not authorized and world["visibility"] == "password":
                 authorized = password_matches(str(data.get("password", "")), world["password"])

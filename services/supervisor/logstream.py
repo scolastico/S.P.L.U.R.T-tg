@@ -12,13 +12,29 @@ _unsafe = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 _control = re.compile(r"[\x00-\x1f\x7f]")
 
 
+_subscribers = []
+
+
+def subscribe(callback):
+    """callback(source, line) for every emitted line, e.g. to mirror them to Discord.
+    It runs on the emitting thread and must not block or log itself."""
+    _subscribers.append(callback)
+
+
 def emit(source, text):
     """Write text (possibly several lines) to stdout, each line prefixed."""
-    lines = str(text).replace("\r\n", "\n").replace("\r", "\n").rstrip("\n").split("\n")
+    lines = [_unsafe.sub("", line) for line in
+             str(text).replace("\r\n", "\n").replace("\r", "\n").rstrip("\n").split("\n")]
     with _lock:
         for line in lines:
-            sys.stdout.write("[%s] %s\n" % (source, _unsafe.sub("", line)))
+            sys.stdout.write("[%s] %s\n" % (source, line))
         sys.stdout.flush()
+    for callback in list(_subscribers):
+        for line in lines:
+            try:
+                callback(source, line)
+            except Exception:
+                pass
 
 
 def log(text):

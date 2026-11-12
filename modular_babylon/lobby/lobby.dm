@@ -104,6 +104,7 @@ var/global/list/lobby_config
 	var/request_revision = 0
 	var/last_browser_content = ""
 	var/poll_generation = 0
+	var/discord_invite = ""
 
 // BYOND hands a returning player their old mob, so everything tied to the
 // previous client connection (its browser page, a pending action, the poll
@@ -175,6 +176,7 @@ var/global/list/lobby_config
 	content += "<p class='muted'>[descriptions[view_filter]]</p>"
 	if(result["admin"])
 		content += "<p><span class='badge'>Server administrator</span> <small>Your account can see private worlds and bypass their admission restrictions.</small></p>"
+	content += discord_bar(result["discord"])
 	if(notice)
 		content += "<p class='notice' role='status'>[html_encode(notice)]</p>"
 	if(result["error"])
@@ -250,12 +252,52 @@ var/global/list/lobby_config
 	if(client)
 		show_browser(1)
 
+/// Discord link state, requirements and the link/unlink/invite buttons.
+/mob/lobby/proc/discord_bar(list/discord)
+	if(!islist(discord) || !discord["link"])
+		discord_invite = islist(discord) ? (discord["invite"] || "") : ""
+		return discord_invite ? "<p class='muted'><a class='button' href='?src=\ref[src];action=discord_invite'>Join our Discord</a></p>" : ""
+	discord_invite = discord["invite"] || ""
+	var/list/required = list()
+	if(discord["require_create"])
+		required += "create"
+	if(discord["require_join"])
+		required += "join"
+	var/requirement = length(required) ? "Required to [jointext(required, " and ")] worlds." : "Optional."
+	var/invite = discord_invite ? "<a class='button' href='?src=\ref[src];action=discord_invite'>Open our Discord</a>" : ""
+	if(discord["linked"])
+		return "<div class='discord linked'><b>Discord:</b> linked as <b>[html_encode(discord["name"])]</b>. <span class='buttons'><a class='button' data-stage='Unlinking your Discord account...' onclick='return beginAction(this)' href='?src=\ref[src];action=discord_unlink'>Unlink</a>[invite]</span></div>"
+	return "<div class='discord[length(required) ? " required" : ""]'><b>Discord:</b> not linked. [requirement] <span class='buttons'><a class='button primary' data-stage='Creating a link code...' onclick='return beginAction(this)' href='?src=\ref[src];action=discord_link'>Link Discord</a>[invite]</span></div>"
+
 /mob/lobby/proc/handle_action(list/params)
 	var/action = params["action"]
 	notice = ""
 	if(action == "filter")
 		if(params["filter"] in list("active", "mine", "shared", "all"))
 			view_filter = params["filter"]
+		return
+	if(action == "discord_invite")
+		if(discord_invite)
+			src << link(discord_invite)
+		return
+	if(action == "discord_link")
+		var/list/code_result = api("discord_code")
+		if(code_result["error"])
+			notice = code_result["error"]
+			return
+		var/command = "/link code:[code_result["code"]]"
+		world.log << "[ckey] requested a Discord link code"
+		notice = "Your link code is [code_result["code"]]. Type [command] in our Discord within 10 minutes, then reopen this window."
+		// An input box, so the command can be copied.
+		input(src, "Type this command in our Discord within 10 minutes. You can copy it from this box.", "Link Discord", command) as null|text
+		if(discord_invite && alert(src, "Open our Discord now?", "Link Discord", "Open Discord", "Not now") == "Open Discord")
+			src << link(discord_invite)
+		return
+	if(action == "discord_unlink")
+		if(alert(src, "Unlink your Discord account from [ckey]?", "Unlink Discord", "Unlink", "Cancel") != "Unlink")
+			return
+		var/list/unlink_result = api("discord_unlink")
+		notice = unlink_result["error"] || "Your Discord account was unlinked."
 		return
 	var/id = params["world"]
 	var/list/card = cards[id]

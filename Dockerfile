@@ -9,7 +9,7 @@ RUN test "$TARGETARCH" = amd64 \
  && if [ -n "$UBUNTU_MIRROR" ]; then sed -i -E "s@http://(archive|security).ubuntu.com/ubuntu/?@${UBUNTU_MIRROR%/}@g" /etc/apt/sources.list.d/ubuntu.sources; fi \
  && apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o APT::Update::Error-Mode=any update \
  && apt-get install -y --no-install-recommends \
-    ca-certificates curl unzip make python3 nodejs \
+    ca-certificates curl unzip make python3 python3-pip nodejs \
     libc6:i386 libstdc++6:i386 libgcc-s1:i386 zlib1g:i386 \
     libssl3t64:i386 libcurl4t64:i386 \
  && rm -rf /var/lib/apt/lists/*
@@ -20,6 +20,10 @@ ENV PATH="/opt/byond/bin:${PATH}" LD_LIBRARY_PATH=/opt/byond/bin
 
 FROM toolchain AS build
 WORKDIR /src
+# The supervisor's Discord bot (discord.py); copied into the runtime image.
+COPY services/supervisor/requirements.txt /tmp/requirements.txt
+RUN python3 -m pip install --no-cache-dir --break-system-packages --target /opt/pydeps -r /tmp/requirements.txt
+ENV PYTHONPATH=/opt/pydeps
 COPY . .
 RUN bun install --frozen-lockfile --ignore-scripts \
  && cd tgui && bun install --frozen-lockfile --ignore-scripts \
@@ -57,8 +61,9 @@ RUN dpkg --add-architecture i386 \
 COPY --from=toolchain /opt/byond /opt/byond
 COPY --from=toolchain /opt/native /opt/native
 COPY --from=build /opt/babylon /opt/babylon
+COPY --from=build /opt/pydeps /opt/pydeps
 ENV PATH="/opt/byond/bin:${PATH}" LD_LIBRARY_PATH=/opt/byond/bin \
-    HOME=/home/babylon PYTHONUNBUFFERED=1
+    HOME=/home/babylon PYTHONUNBUFFERED=1 PYTHONPATH=/opt/pydeps
 USER babylon
 WORKDIR /opt/babylon
 VOLUME ["/data"]
