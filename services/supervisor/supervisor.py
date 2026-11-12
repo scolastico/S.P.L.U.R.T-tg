@@ -227,6 +227,8 @@ class Supervisor:
             CREATE TABLE IF NOT EXISTS discord_links (ckey TEXT PRIMARY KEY, discord_id TEXT UNIQUE NOT NULL,
               discord_name TEXT, linked REAL NOT NULL);
             CREATE TABLE IF NOT EXISTS discord_codes (hash TEXT PRIMARY KEY, ckey TEXT NOT NULL, expires REAL NOT NULL);
+            CREATE TABLE IF NOT EXISTS world_bans (world TEXT NOT NULL, ckey TEXT NOT NULL, by TEXT NOT NULL,
+              reason TEXT NOT NULL, at REAL NOT NULL, PRIMARY KEY(world, ckey));
         """)
         columns = {row[1] for row in self.db.execute("PRAGMA table_info(worlds)")}
         if "last_used" not in columns:
@@ -270,7 +272,7 @@ class Supervisor:
         # Called inside the admission lock/transaction: revoke access and commit
         # the retry journal before any filesystem operation can begin.
         self.db.execute("INSERT OR IGNORE INTO world_deletions VALUES(?)", (world,))
-        for table in ("members", "tickets", "sessions"):
+        for table in ("members", "tickets", "sessions", "world_bans"):
             self.db.execute(f"DELETE FROM {table} WHERE world=?", (world,))
         self.db.execute("DELETE FROM worlds WHERE id=?", (world,))
         self.audit(actor, action, world)
@@ -325,6 +327,51 @@ class Supervisor:
             return "owner"
         member = self.row("SELECT role FROM members WHERE world=? AND ckey=?", (world["id"], actor))
         return member["role"] if member else "guest"
+
+    def banned(self, world_id, actor):
+        """World bans are set by the world's owner and apply to that world only; admins are exempt."""
+        return actor not in self.admins and bool(self.row("SELECT 1 FROM world_bans WHERE world=? AND ckey=?", (world_id, actor)))
+
+    WORLD_OPS = ("list", "member_add", "member_remove", "ban", "unban")
+
+    def manage_world(self, run_id, secret, data):
+        """An owner (or admin) managing members and bans from inside their running world."""
+        with self.lock, self.db:
+            run = self.child(run_id, secret)
+            world = self.world(run["world"])
+            actor = ckey(str(data.get("actor", "")))
+            if self.role(actor, world) not in ("owner", "admin"):
+                raise Denied("Only the world's owner or a server administrator can manage its players")
+            op = data.get("op")
+            if op not in self.WORLD_OPS:
+                raise Denied("Unknown world action")
+            if op == "list":
+                members = [r["ckey"] for r in self.db.execute("SELECT ckey FROM members WHERE world=? ORDER BY ckey", (world["id"],))]
+                bans = [dict(r) for r in self.db.execute("SELECT ckey, by, reason FROM world_bans WHERE world=? ORDER BY at", (world["id"],))]
+                return {"ok": True, "owner": world["owner"], "members": members, "bans": bans}
+            target = ckey(str(data.get("target", "")))
+            if not target:
+                raise Denied("Name a BYOND account")
+            if op in ("member_remove", "ban") and (target == world["owner"] or target in self.admins):
+                raise Denied("The world's owner and server administrators can't be removed or banned")
+            if op == "member_add":
+                if target == world["owner"]:
+                    raise Denied("The owner is already part of this world")
+                if self.banned(world["id"], target):
+                    raise Denied("Unban that player first")
+                self.db.execute("INSERT OR REPLACE INTO members VALUES(?,?,?)", (world["id"], target, "member"))
+            elif op == "member_remove":
+                self.db.execute("DELETE FROM members WHERE world=? AND ckey=?", (world["id"], target))
+            elif op == "ban":
+                reason = clean_text(str(data.get("reason", "")))[:200] or "No reason given"
+                self.db.execute("DELETE FROM members WHERE world=? AND ckey=?", (world["id"], target))
+                self.db.execute("INSERT OR REPLACE INTO world_bans VALUES(?,?,?,?,?)", (world["id"], target, actor, reason, self.clock()))
+            else:
+                self.db.execute("DELETE FROM world_bans WHERE world=? AND ckey=?", (world["id"], target))
+            if op in ("member_remove", "ban"):
+                self.db.execute("DELETE FROM tickets WHERE world=? AND ckey=?", (world["id"], target))
+            self.audit(actor, f"{op}:{target}", world["id"])
+            return {"ok": True}
 
     def audit(self, actor, action, world_id):
         self.db.execute("INSERT INTO audit VALUES(?,?,?,?)", (self.clock(), actor, action, world_id))
@@ -622,6 +669,8 @@ class Supervisor:
             if action != "join":
                 raise Denied("Unknown action")
             self.require_discord(actor, "join")
+            if self.banned(world["id"], actor):
+                raise Denied("You are banned from this world")
             authorized = role != "guest" or world["visibility"] in ("public", "showcase")
             if not authorized and world["visibility"] == "password":
                 authorized = password_matches(str(data.get("password", "")), world["password"])
@@ -707,6 +756,8 @@ class Supervisor:
                 raise Denied("Admission expired or invalid; reconnect through the lobby")
             world = self.world(run["world"])
             role = self.role(ckey(actor), world)
+            if self.banned(world["id"], ckey(actor)):
+                raise Denied("You are banned from this world")
             if role == "guest" and world["visibility"] not in ("public", "showcase") and not (world["visibility"] == "password" and ticket["password_hash"] == world["password"]):
                 raise Denied("Access has changed")
             players = set(json.loads(run["players"]))
@@ -856,6 +907,8 @@ def serve(config, service=None):
                     result = service.redeem(data.get("run"), data.get("secret", ""), data.get("ticket", ""), data.get("actor", ""))
                 elif data.get("action") == "ahelp":
                     result = service.relay_ahelp(data.get("run"), data.get("secret", ""), data)
+                elif data.get("action") == "world_manage":
+                    result = service.manage_world(data.get("run"), data.get("secret", ""), data)
                 else:
                     if not hmac.compare_digest(str(data.get("secret", "")), config["lobby_secret"]):
                         raise Denied("Invalid lobby credentials")

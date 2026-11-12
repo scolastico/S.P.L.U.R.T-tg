@@ -155,6 +155,31 @@ class DiscordLinks(unittest.TestCase):
         with self.assertRaisesRegex(Denied, "already closed"):
             self.s.ahelp_close(run["id"], 4, "Mod")
 
+    def test_owners_manage_members_and_world_bans_from_their_world(self):
+        run = self.running_world()
+        manage = lambda actor, op, target="", **extra: self.s.manage_world(run["id"], run["secret"], dict(actor=actor, op=op, target=target, **extra))
+        with self.assertRaisesRegex(Denied, "credentials"):
+            self.s.manage_world(run["id"], "wrong", dict(actor="owner", op="list"))
+        with self.assertRaisesRegex(Denied, "Only the world's owner"):
+            manage("stranger", "ban", "victim")
+        manage("owner", "member_add", "Friend")
+        self.assertEqual(manage("owner", "list")["members"], ["friend"])
+        manage("owner", "ban", "Friend", reason="griefing\u202e")
+        listing = manage("owner", "list")
+        self.assertEqual((listing["members"], listing["bans"]), ([], [{"ckey": "friend", "by": "owner", "reason": "griefing"}]))
+        with self.assertRaisesRegex(Denied, "banned from this world"):
+            self.s.dispatch("friend", "join", dict(world=run["world"]))
+        # World bans are world bound: another world still admits the player.
+        other = self.s.dispatch("other", "create", dict(name="Other", visibility="public"))["id"]
+        with self.assertRaisesRegex(Denied, "offline"):  # refused for being offline, not banned
+            self.s.dispatch("friend", "join", dict(world=other))
+        with self.assertRaisesRegex(Denied, "can't be removed or banned"):
+            manage("owner", "ban", "admin")
+        with self.assertRaisesRegex(Denied, "Unban that player first"):
+            manage("owner", "member_add", "friend")
+        manage("admin", "unban", "friend")
+        self.assertTrue(self.s.dispatch("friend", "join", dict(world=run["world"]))["ok"])
+
     def test_ahelp_replies_reach_only_a_running_world(self):
         run = self.running_world()
         self.assertTrue(self.s.ahelp_reply(run["id"], "Some Player", "Mod", "On my way")["ok"])

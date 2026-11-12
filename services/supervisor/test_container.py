@@ -176,3 +176,16 @@ class LobbyHtml(unittest.TestCase):
                      if ("<" in line.replace("<<", "") or re.search(r"\b(rendered|content)\s*\+?=", line))
                      and not line.strip().startswith("world.log") and raw.search(line)]
         self.assertEqual(offenders, [])
+
+
+class BabylonDmStyle(unittest.TestCase):
+    """In DM, `in` binds weaker than && and ||: `a || b in list(...)` means `(a || b) in list(...)`."""
+
+    def test_in_is_parenthesized_next_to_boolean_operators(self):
+        import re
+        root = Path(__file__).resolve().parents[2] / "modular_babylon"
+        pattern = re.compile(r'(\|\||&&)[^()]*[A-Za-z_\]"]+ in (list\(|[A-Za-z_.]+)')
+        offenders = [f"{path.name}:{number}: {line.strip()}" for path in sorted(root.rglob("*.dm"))
+                     for number, line in enumerate(path.read_text().splitlines(), 1)
+                     if pattern.search(line) and not re.search(r"\(([^()]*) in ", line)]
+        self.assertEqual(offenders, [])
