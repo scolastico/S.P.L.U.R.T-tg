@@ -65,6 +65,8 @@
 /datum/babylon_save/proc/tick_world()
 	if(!draining)
 		for(var/client/student in GLOB.clients)
+			if(!babylon_ready_client(student))
+				continue
 			// Each player on their own, so one player's error cannot block everyone else.
 			try
 				if(student.babylon_showcase_visitor)
@@ -78,13 +80,21 @@
 		for(var/player_key in player_sessions)
 			var/datum/babylon_save/player = player_sessions[player_key]
 			try
-				tick_player(player, GLOB.directory[player_key])
+				tick_player(player, babylon_ready_client(GLOB.directory[player_key]))
 			catch(var/exception/error)
 				babylon_loop_failed("player [player_key]", error)
 		tick_survival()
 	if(length(GLOB.clients) && world.time >= next_autosave_at - 30 SECONDS && !autosave_countdown_active && !draining)
 		next_autosave_at = world.time + 15 MINUTES + 30 SECONDS
 		INVOKE_ASYNC(src, PROC_REF(countdown_autosave))
+
+/// The client once /client/New() has finished, else null. GLOB.clients lists a client from
+/// early in New(), which then still waits on the player's game (window checks, the chat panel)
+/// for a while on a slow first load. Possessing the drone and deleting the new-player mob in
+/// that window left the rest of New() working on a deleted mob: a half set-up client stuck on
+/// a black screen with only the title music playing, until the player reconnected.
+/proc/babylon_ready_client(client/student)
+	return student?.fully_created ? student : null
 
 /// Logs a failed loop step once a minute per step, so a recurring error cannot flood the log.
 /proc/babylon_loop_failed(step, exception/error)
