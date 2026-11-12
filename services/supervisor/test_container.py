@@ -123,3 +123,17 @@ class ContainerConfiguration(unittest.TestCase):
             self.assertEqual(config['lobby_secret'], lobby['secret'])
             self.assertIn('SERVERNAME Test station', (output / 'game-config/config.txt').read_text())
             self.assertNotIn('SERVERNAME', (config_dir / 'config.txt').read_text())
+
+
+class LobbyHubListing(unittest.TestCase):
+    """The hub keeps the first announcement: with a wrong password the lobby is listed only
+    while someone is connected. It must start invisible and become visible only after the
+    configured password is set."""
+
+    def test_lobby_announces_itself_only_with_the_configured_password(self):
+        source = (Path(__file__).resolve().parents[2] / "modular_babylon/lobby/lobby.dm").read_text()
+        world_block = source.split("/world/New()")[0]
+        self.assertRegex(world_block, r"\n\tvisibility = 0\n")
+        self.assertNotIn("SORRYNOPASSWORD", world_block)
+        new_proc = source.split("/world/New()")[1].split("\n/")[0]
+        self.assertLess(new_proc.index('hub_password = lobby_config["hub_password"]'), new_proc.index("visibility = 1"))

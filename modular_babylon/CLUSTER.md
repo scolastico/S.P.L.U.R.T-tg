@@ -58,7 +58,10 @@ upstream's shared `Exadv1.spacestation13` entry; override with `BABYLON_HUB` and
 `-invisible` flag, because they only admit lobby tickets. The hub's own player
 counter only sees lobby connections, so the lobby refreshes its hub status every
 30 seconds with the total across the lobby and all running worlds. The lobby
-never sleeps while empty, so the entry stays listed without players.
+never sleeps while empty, so the entry stays listed without players. It starts
+invisible and only becomes visible once the configured hub password is set: a
+world first announced with a wrong password is listed only while someone is
+connected.
 
 The status line is the HTML template `BABYLON_HUB_STATUS`, so links and wording
 can be changed without a rebuild. Placeholders: `{name}` (`BABYLON_SERVER_NAME`),

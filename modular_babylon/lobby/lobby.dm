@@ -11,12 +11,16 @@ var/global/list/lobby_config
 	// A sleeping world stops refreshing its hub entry, so an empty lobby would
 	// drop off the hub list until someone joined. Keep it awake.
 	sleep_offline = 0
-	// BYOND only registers with the hub set at compile time, so hub is fixed here
-	// and, like upstream's update_hub_visibility(), listing is toggled through
-	// the password: a wrong one keeps the lobby off the hub until the lobby
-	// config opts in (BABYLON_HUB_LISTED).
+	// BYOND only registers with the hub set at compile time, so hub is fixed here.
+	// The world announces itself while it starts, before New() can read the lobby
+	// config. Announced with a wrong password, the hub treats it as unregistered and
+	// lists it only while someone is connected; a later password change is not
+	// re-announced until a player joins. So the lobby starts invisible with
+	// upstream's (public) password, and New() sets the configured password before
+	// making it visible (BABYLON_HUB_LISTED). Unlisted lobbies stay invisible.
 	hub = "Exadv1.spacestation13"
-	hub_password = "SORRYNOPASSWORD"
+	hub_password = "kMZy3U5jJHSiBQjr"
+	visibility = 0
 
 /world/New()
 	..()
@@ -38,6 +42,10 @@ var/global/list/lobby_config
 		if(lobby_config["hub"] && lobby_config["hub"] != hub)
 			hub = lobby_config["hub"]
 		hub_password = lobby_config["hub_password"]
+		visibility = 1
+	else
+		hub_password = "SORRYNOPASSWORD"
+		visibility = 0
 	spawn(0)
 		while(1)
 			update_hub_status()
