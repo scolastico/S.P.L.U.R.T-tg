@@ -53,7 +53,7 @@
 /mob/proc/babylon_show_player_key()
 	if(!world.params["babylon-world"] || !key)
 		return
-	if(!istype(src, /mob/living/basic/drone) && !isobserver(src) && !istype(src, /mob/dead/babylon_visitor))
+	if(!istype(src, /mob/living/basic/drone) && !isobserver(src))
 		return
 	var/suffix = " ([key])"
 	if(!babylon_base_name)

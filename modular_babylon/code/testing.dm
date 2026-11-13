@@ -50,22 +50,29 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	var/roster_before = length(player_sessions)
 	var/turf/start = respawn_turf
 	var/turf/destination = get_step(start, EAST)
-	var/mob/dead/babylon_visitor/visitor = new(start)
+	var/mob/dead/observer/babylon_visitor/visitor = new(start)
 	var/obj/structure/closet/crate/crate = new(destination)
 	var/obj/item/screwdriver/tool = new(start)
 	var/list/result = list()
-	result["visible_to_living"] = !visitor.invisibility && visitor.plane == builder.plane && visitor.alpha > 0
-	result["not_an_observer"] = !isobserver(visitor)
+	result["visible_to_living"] = !visitor.invisibility && visitor.alpha > 0
+	result["observer_without_body"] = isobserver(visitor) && !visitor.can_reenter_corpse && !visitor.mind
 	result["no_inventory"] = !length(visitor.contents) && !visitor.put_in_hands(tool) && tool.loc == start
 	result["no_physical_actions"] = !visitor.can_perform_action(crate, NONE) && !visitor.can_interact_with(crate) && !visitor.start_pulling(crate)
 	visitor.ClickOn(crate, "left=1")
 	visitor.UnarmedAttack(crate, TRUE)
 	result["cannot_open_crate"] = !crate.opened
-	result["no_possession"] = isnull(visitor.ghostize()) && !("can_reenter_corpse" in visitor.vars)
+	result["no_possession"] = isnull(visitor.ghostize(can_reenter_corpse = TRUE))
 	result["no_emote_actions"] = !visitor.emote("boo")
-	result["passes_through_solids"] = visitor.Move(destination, EAST) && visitor.loc == destination && crate.density
+	visitor.Move(destination, EAST)
+	result["passes_through_solids"] = visitor.loc == destination && crate.density
+	result["faces_movement"] = visitor.dir == EAST
 	var/turf/outside = locate(1, 1, station_z == 1 ? 2 : 1)
-	result["station_only"] = outside && !visitor.Move(outside, NORTH) && visitor.loc == destination
+	visitor.Move(outside, NORTH)
+	visitor.forceMove(outside)
+	result["station_only"] = outside && visitor.loc == destination
+	result["observer_tools_allowed"] = babylon_showcase_allowed_verb(/mob/dead/observer/verb/follow) && babylon_showcase_allowed_verb(/client/verb/fix_tgui_panel)
+	result["ghost_powers_blocked"] = !babylon_showcase_allowed_verb(/mob/dead/observer/verb/reenter_corpse) && !babylon_showcase_allowed_verb(/mob/dead/observer/verb/observe)
+	result["unknown_window_blocked"] = !babylon_showcase_window_allowed(visitor, "tgui-window-1")
 	result["no_player_roster"] = length(player_sessions) == roster_before
 	result["raw_machine_link_blocked"] = !babylon_showcase_topic_allowed(list("src" = REF(crate), "open" = 1))
 	result["machine_ui_blocked"] = !babylon_showcase_topic_allowed(list("tgui" = TRUE, "window_id" = "tgui1", "type" = "act", "payload" = "{}"))
