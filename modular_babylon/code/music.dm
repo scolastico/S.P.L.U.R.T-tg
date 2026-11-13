@@ -198,6 +198,16 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 	update.status = SOUND_UPDATE
 	SEND_SOUND(client, update)
 
+/// No title (lobby) music in Babylon worlds. Every join briefly has a new-player mob whose
+/// Login() starts it, and possessing the drone never stopped it, so it played on (on the
+/// server music's channel) until a server track replaced it; round end, the ticker and the
+/// lobby volume preference start it too. Server music is the only music in a world.
+/client/playtitlemusic(volume_multiplier = 1)
+	set waitfor = FALSE // As upstream's: it waits for the ticker's music.
+	if(world.params["babylon-world"])
+		return
+	return ..()
+
 /// Quick mute for players who record or stream; unmuting restores the volume they had.
 /client/verb/babylon_toggle_server_music()
 	set name = "Toggle Server Music"
