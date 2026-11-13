@@ -120,11 +120,7 @@
 	plappable = FALSE
 	return ..()
 
-// Research: lewd designs are never unlockable. Nodes add some IDs after New(),
-// so prune them when SSresearch initializes each node.
-/datum/techweb_node/Initialize()
-	design_ids -= babylon_erp_design_ids()
-	return ..()
+// Research: lewd designs are never unlockable (babylon_removed_design() in research.dm).
 
 // Chemistry: the forced config removes reactions flagged erp_reaction. Remove
 // unflagged ones that make or consume ERP reagents too (e.g. drinks whose

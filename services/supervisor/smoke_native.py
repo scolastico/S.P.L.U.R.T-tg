@@ -131,6 +131,9 @@ def main():
         joining = call(run, "session", "test_join_loading")
         joining = {entry["entry"]: entry["value"] for entry in joining["entries"]}
         assert joining and all(joining.values()), joining
+        silicons = call(run, "session", "test_no_unplayable_silicons")
+        silicons = {entry["entry"]: entry["value"] for entry in silicons["entries"]}
+        assert silicons and all(silicons.values()), silicons
         wrap = call(run, "session", "test_space_wrap")
         wrap = {entry["entry"]: entry["value"] for entry in wrap["entries"]}
         assert wrap and all(wrap.values()), wrap

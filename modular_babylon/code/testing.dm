@@ -428,3 +428,35 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	result["no_plush_toy_slot"] = !plush.plappable && !plush.atom_storage
 	qdel(plush)
 	return result
+
+/// No pAI or station AI can be researched, built or found (silicons.dm).
+/datum/babylon_save/proc/test_no_unplayable_silicons()
+	var/list/result = list()
+	var/designs = FALSE
+	for(var/node_id in SSresearch.techweb_nodes)
+		var/datum/techweb_node/node = SSresearch.techweb_nodes[node_id]
+		for(var/design_id in node.design_ids)
+			if(babylon_unplayable_design(SSresearch.techweb_design_by_id(design_id)))
+				designs = TRUE
+	result["no_pai_or_ai_designs"] = !designs
+	var/datum/techweb/web = new /datum/techweb
+	result["saved_research_cannot_add_them"] = !web.add_design_by_id("paicard") && !web.add_design_by_id("aicore")
+	qdel(web)
+	var/obj/item/stack/sheet/plasteel/sheets = new(respawn_turf)
+	var/recipe = FALSE
+	for(var/datum/stack_recipe/entry in sheets.get_main_recipes())
+		if(ispath(entry.result_type, /obj/structure/ai_core))
+			recipe = TRUE
+	result["no_ai_core_recipe"] = !recipe
+	qdel(sheets)
+	var/obj/item/pai_card/card = new(respawn_turf)
+	result["pai_cards_are_removed"] = QDELETED(card)
+	var/obj/structure/ai_core/core = new(respawn_turf)
+	result["ai_cores_are_removed"] = QDELETED(core)
+	var/mob/dead/observer/ghost = new(respawn_turf)
+	var/datum/action/innate/join_soulcatcher/join = new(ghost)
+	join.Grant(ghost)
+	result["no_soulcatcher_button"] = !(join in ghost.actions)
+	qdel(join)
+	qdel(ghost)
+	return result

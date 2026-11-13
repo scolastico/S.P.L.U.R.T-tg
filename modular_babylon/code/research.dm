@@ -103,3 +103,24 @@
 	. = ..()
 	if(stored_research)
 		.["babylon_research"] = list("target" = stored_research.babylon_target || "")
+
+/// Designs Babylon never offers: ERP ones (sfw.dm) and pAI / AI core ones (silicons.dm).
+/proc/babylon_removed_design(datum/design/design)
+	return istype(design) && ((design.id in babylon_erp_design_ids()) || babylon_unplayable_design(design))
+
+// Pruned from every node right before SSresearch links nodes and designs. Not in
+// /datum/techweb_node/Initialize(): initialize_all_techweb_nodes() calls it on the previous,
+// still empty node list, so at startup it never runs. Modular nodes also add IDs in New().
+/datum/controller/subsystem/research/calculate_techweb_nodes()
+	for(var/node_id in techweb_nodes)
+		var/datum/techweb_node/node = techweb_nodes[node_id]
+		for(var/design_id in LAZYCOPY(node.design_ids))
+			if(babylon_removed_design(techweb_design_by_id(design_id)))
+				node.design_ids -= design_id
+	return ..()
+
+// Saved research (or anything else) cannot add a removed design either.
+/datum/techweb/add_design(datum/design/design, custom = FALSE, list/add_to)
+	if(babylon_removed_design(design))
+		return FALSE
+	return ..()

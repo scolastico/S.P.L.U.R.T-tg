@@ -21,6 +21,7 @@
 #include "modular_babylon/code/vault.dm"
 #include "modular_babylon/code/survival.dm"
 #include "modular_babylon/code/sfw.dm"
+#include "modular_babylon/code/silicons.dm"
 #include "modular_babylon/code/links.dm"
 #include "modular_babylon/code/storyteller.dm"
 #include "modular_babylon/code/moderation.dm"
