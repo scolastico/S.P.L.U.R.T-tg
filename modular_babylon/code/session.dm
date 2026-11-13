@@ -71,6 +71,8 @@
 			try
 				if(student.babylon_showcase_visitor)
 					ensure_showcase_visitor(student)
+				else if(student.babylon_admin_spectator)
+					ensure_admin_spectator(student)
 				else
 					ensure_player(student.ckey)
 				if(!busy)

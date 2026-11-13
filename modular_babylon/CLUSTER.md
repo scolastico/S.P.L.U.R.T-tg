@@ -248,9 +248,18 @@ lobby before stopping the cluster processes. Do not kill a child to save it.
 - Limits configure total running worlds, players per world, worlds per owner,
   and running worlds per owner. Worlds owned by an admin (`BABYLON_ADMINS`) do
   not count towards the global running-world limit; they only need a free port
-  and are shown separately on the Discord status, e.g. "2/4 (+1)"; the hub lists them as running worlds. A member or admin starting another person's
-  world uses that world's owner quota. Admins bypass join capacity so they can
-  investigate a full world; world creation/start quotas still apply.
+  and are shown separately on the Discord status, e.g. "2/4 (+1)"; the hub lists them as running worlds. A member starting another person's
+  world uses that world's owner quota. Admins are not bound by the per-owner
+  limits: they create as many worlds as they like, run several at once, and
+  can start another person's world even when its owner's running quota is used
+  up (a player's world still counts towards the global limit). Admins bypass
+  join capacity so they can investigate a full world.
+- Admins can also **Spectate** (or **Start and spectate**) a world from the
+  lobby: they enter as an ordinary admin ghost, invisible to players, instead
+  of a drone, so checking on a world leaves no empty admin drone behind. The
+  ghost is deleted when they leave; a drone from an earlier visit stays as it
+  was. Only the supervisor grants this mode, for admin tickets that asked to
+  spectate and only while the account is still an admin.
 - Concurrent join requests share one startup. Settings are validated by the
   supervisor; the browser cannot choose filesystem paths or executable options.
 - Tickets are random, stored as hashes, single use and expire after 60 seconds

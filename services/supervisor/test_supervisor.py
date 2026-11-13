@@ -194,6 +194,44 @@ class Policies(unittest.TestCase):
         self.assertEqual(self.driver.starts, 0)
         self.assertEqual(self.s.row("SELECT count(*) n FROM runs")["n"], 0)
 
+    def test_admins_are_not_limited_by_per_owner_world_rules(self):
+        self.s.config["port_last"] = 1405
+        for _ in range(self.config["max_worlds_per_player"] + 1):
+            self.create("admin")
+        with self.assertRaisesRegex(Denied, "world limit"):
+            for _ in range(self.config["max_worlds_per_player"] + 1):
+                self.create("owner")
+        admin_worlds = [w["id"] for w in self.s.dispatch("admin", "list", {})["worlds"] if w["owner"] == "admin"]
+        self.start(admin_worlds[0], "admin")
+        self.start(admin_worlds[1], "admin")
+        # The owner's own second world stays limited, but an admin may start it for them.
+        owner_worlds = [w["id"] for w in self.s.dispatch("owner", "list", {})["worlds"] if w["owner"] == "owner"]
+        self.start(owner_worlds[0])
+        with self.assertRaisesRegex(Denied, "running-world limit"):
+            self.s.dispatch("owner", "join", dict(world=owner_worlds[1]))
+        self.start(owner_worlds[1], "admin")
+        self.assertEqual(self.driver.starts, 4)
+
+    def test_admins_can_start_and_join_as_spectators(self):
+        world = self.create()
+        # Start and spectate: the pending join and the final one both ask to spectate.
+        run = self.start(world, "admin", spectate=True)
+        token = self.ticket(world, "admin", spectate=True)
+        self.assertEqual(self.s.redeem(run["id"], run["secret"], token, "admin")["mode"], "spectator")
+        self.s.db.execute("DELETE FROM sessions")
+        token = self.ticket(world, "admin")
+        self.assertEqual(self.s.redeem(run["id"], run["secret"], token, "admin")["mode"], "player")
+        for actor in ("owner", "stranger"):
+            with self.subTest(actor=actor), self.assertRaisesRegex(Denied, "administrators"):
+                self.s.dispatch(actor, "join", dict(world=world, spectate=True))
+
+    def test_spectator_tickets_lose_the_mode_when_admin_rights_end(self):
+        world = self.create()
+        run = self.start(world)
+        token = self.ticket(world, "admin", spectate=True)
+        self.s.admins.discard("admin")
+        self.assertEqual(self.s.redeem(run["id"], run["secret"], token, "admin")["mode"], "player")
+
     def test_admin_can_start_private_world(self):
         w = self.s.dispatch("owner", "create", {"name": "Private", "visibility": "private"})["id"]
         self.start(w, "admin")

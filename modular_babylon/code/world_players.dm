@@ -28,7 +28,7 @@
 	. = ..()
 	// A rejected admission returns before the client is registered.
 	if(src && (src in GLOB.clients))
-		babylon_announced = babylon_announce(babylon_showcase_visitor ? "[html_encode(key)] is visiting the world." : "[html_encode(key)] joined the world.")
+		babylon_announced = babylon_announce(babylon_showcase_visitor ? "[html_encode(key)] is visiting the world." : (babylon_admin_spectator ? "[html_encode(key)] is spectating the world." : "[html_encode(key)] joined the world."))
 	if(src && babylon_world_manager())
 		add_verb(src, list(/client/proc/babylon_add_member, /client/proc/babylon_remove_member,
 			/client/proc/babylon_kick_player, /client/proc/babylon_ban_player, /client/proc/babylon_unban_player))

@@ -204,7 +204,7 @@ var/global/list/lobby_config
 	var/list/descriptions = list("active" = "Worlds currently running, starting or stopping. Join an online world to continue building.", "mine" = "Worlds you own. Start an offline world, change its settings, or restore a saved checkpoint.", "shared" = "Worlds where you have membership. You can start these even when the owner is away.", "all" = "Worlds available to your account. Guests can join online worlds; owners, members and admins can start offline worlds.")
 	content += "<p class='muted'>[descriptions[view_filter]]</p>"
 	if(result["admin"])
-		content += "<p><span class='badge'>Server administrator</span> <small>Your account can see private worlds and bypass their admission restrictions.</small></p>"
+		content += "<p><span class='badge'>Server administrator</span> <small>Your account can see private worlds, bypass their admission restrictions and the per-owner world limits, and spectate worlds as an invisible ghost without a drone.</small></p>"
 	if(result["server_notice"])
 		content += "<p class='notice' role='alert'><b>[html_encode(result["server_notice"])]</b></p>"
 	content += discord_bar(result["discord"])
@@ -234,6 +234,9 @@ var/global/list/lobby_config
 			if(card["role"] != "guest" || card["state"] != "stopped")
 				var/join_label = card["state"] == "stopped" ? "Start and join" : (card["visibility"] == "showcase" && card["role"] == "guest" ? "Visit showcase" : "Join world")
 				rendered += "<a class='button primary' data-world='[world_name]' data-stage='Preparing your connection...' onclick='return beginAction(this)' href='?src=\ref[src];action=join;world=[id]'>[join_label]</a>"
+				// Admins can look around as an invisible ghost instead of leaving a drone behind.
+				if(card["role"] == "admin")
+					rendered += "<a class='button' data-world='[world_name]' data-stage='Preparing your connection...' onclick='return beginAction(this)' href='?src=\ref[src];action=join;spectate=1;world=[id]'>[card["state"] == "stopped" ? "Start and spectate" : "Spectate"]</a>"
 				if(card["visibility"] == "showcase" && card["role"] == "guest")
 					rendered += "<small>Visible ghost visit: explore and chat only. Membership is required to build.</small>"
 			else
@@ -365,6 +368,8 @@ var/global/list/lobby_config
 		notice = result["error"] || "World settings saved."
 		view_filter = "mine"
 	else if(action == "join")
+		if(params["spectate"] == "1")
+			payload["spectate"] = 1
 		if(card["visibility"] == "password" && card["role"] == "guest")
 			var/password = input(src, "World password", "Join world") as null|password
 			if(isnull(password))

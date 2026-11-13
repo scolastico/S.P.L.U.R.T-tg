@@ -23,10 +23,11 @@
 	if(!istext(ticket) || length(ticket) > 128)
 		return FALSE
 	var/list/result = babylon_supervisor_request(list("action" = "redeem", "ticket" = ticket, "actor" = ckey))
-	if(!result?["ok"] || result["world"] != world.params["babylon-world"] || result["run"] != world.params["babylon-run"] || !(result["mode"] in list("player", "showcase")))
+	if(!result?["ok"] || result["world"] != world.params["babylon-world"] || result["run"] != world.params["babylon-run"] || !(result["mode"] in list("player", "showcase", "spectator")))
 		return FALSE
 	// Only the authenticated supervisor response can grant a play mode.
 	babylon_showcase_visitor = result["mode"] == "showcase"
+	babylon_admin_spectator = result["mode"] == "spectator" && result["role"] == "admin"
 	babylon_world_role = result["role"]
 	if(result["role"] == "admin")
 		babylon_grant_admin(ckey)
@@ -71,7 +72,7 @@
 	if(!player_key)
 		return null
 	var/client/student = GLOB.directory[player_key]
-	if(student?.babylon_showcase_visitor)
+	if(student?.babylon_showcase_visitor || student?.babylon_admin_spectator)
 		return null
 	var/datum/babylon_save/player = player_sessions[player_key]
 	if(player)
@@ -114,7 +115,8 @@
 	drone.update_worn_head()
 
 /datum/babylon_save/proc/tick_player(datum/babylon_save/player, client/student)
-	if(student?.babylon_showcase_visitor)
+	// A spectating admin may still own a drone from an earlier visit; it is not taken over.
+	if(student?.babylon_showcase_visitor || student?.babylon_admin_spectator)
 		return
 	player.station_z = station_z
 	player.ready = ready

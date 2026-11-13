@@ -244,6 +244,9 @@ class Supervisor:
         columns = {row[1] for row in self.db.execute("PRAGMA table_info(worlds)")}
         if "last_used" not in columns:
             self.db.execute("ALTER TABLE worlds ADD COLUMN last_used REAL")
+        # Admin tickets may ask to spectate (an observer instead of a drone).
+        if "spectate" not in {row[1] for row in self.db.execute("PRAGMA table_info(tickets)")}:
+            self.db.execute("ALTER TABLE tickets ADD COLUMN spectate INTEGER DEFAULT 0")
         self.db.execute("UPDATE worlds SET last_used=max(created,coalesce((SELECT max(at) FROM audit WHERE world=worlds.id),created)) WHERE last_used IS NULL")
         self.db.commit()
         self.stop_workers = set()
@@ -644,7 +647,8 @@ class Supervisor:
             if action == "create":
                 self.require_discord(actor, "create")
                 count = self.row("SELECT count(*) n FROM worlds WHERE owner=?", (actor,))["n"]
-                if count >= self.config["max_worlds_per_player"]:
+                # Server administrators are not bound by the per-owner limits.
+                if actor not in self.admins and count >= self.config["max_worlds_per_player"]:
                     raise Denied("Your world limit has been reached")
                 fields = self.settings(data)
                 world_id = secrets.token_hex(16)
@@ -699,6 +703,9 @@ class Supervisor:
             if action != "join":
                 raise Denied("Unknown action")
             self.require_discord(actor, "join")
+            spectate = data.get("spectate") in (True, 1, "1", "true")
+            if spectate and role != "admin":
+                raise Denied("Only server administrators can spectate")
             if self.banned(world["id"], actor):
                 raise Denied("You are banned from this world")
             authorized = role != "guest" or world["visibility"] in ("public", "showcase")
@@ -710,7 +717,7 @@ class Supervisor:
             if not run:
                 if role == "guest":
                     raise Denied("This world is offline. Only its owner, members or a server administrator can start it")
-                self.start(world)
+                self.start(world, actor)
                 return {"ok": True, "pending": True}
             if run["state"] == "starting":
                 return {"ok": True, "pending": True}
@@ -725,9 +732,9 @@ class Supervisor:
             if actor not in players and len(players) + reserved >= world["max_players"] and role != "admin":
                 raise Denied("World is full")
             token = secrets.token_urlsafe(32)
-            self.db.execute("INSERT INTO tickets VALUES(?,?,?,?,?,?,?)",
+            self.db.execute("INSERT INTO tickets(hash,ckey,world,run,expires,password_hash,admin,spectate) VALUES(?,?,?,?,?,?,?,?)",
                             (hashlib.sha256(token.encode()).hexdigest(), actor, world["id"], run["id"],
-                             self.clock() + self.config["ticket_lifetime_seconds"], world["password"], role == "admin"))
+                             self.clock() + self.config["ticket_lifetime_seconds"], world["password"], role == "admin", spectate))
             self.db.execute("UPDATE runs SET empty_since=NULL WHERE id=?", (run["id"],))
             self.audit(actor, "ticket", world["id"])
             return {"ok": True, "address": f"byond://{self.config['public_host']}:{run['port']}?babylon_ticket={token}"}
@@ -739,7 +746,7 @@ class Supervisor:
         except (FileNotFoundError, ValueError, KeyError):
             return None
 
-    def start(self, world):
+    def start(self, world, actor=None):
         # Finish any interrupted rollback before a child can read its startup files.
         try:
             self.checkpoints.retain(world["id"])
@@ -750,7 +757,9 @@ class Supervisor:
         if world["owner"] not in self.admins and sum(r["owner"] not in self.admins for r in runs) >= self.config["max_running_worlds"]:
             raise Denied("The server's running-world limit has been reached")
         owned = self.row("SELECT count(*) n FROM runs r JOIN worlds w ON w.id=r.world WHERE w.owner=?", (world["owner"],))["n"]
-        if owned >= self.config["max_running_worlds_per_player"]:
+        # The per-owner limit binds neither admin-owned worlds nor worlds an administrator starts.
+        exempt = world["owner"] in self.admins or actor in self.admins
+        if not exempt and owned >= self.config["max_running_worlds_per_player"]:
             raise Denied("This owner's running-world limit has been reached")
         ports = {r["port"] for r in runs}
         port = next((p for p in range(self.config["port_first"], self.config["port_last"] + 1) if p not in ports), None)
@@ -799,8 +808,13 @@ class Supervisor:
             self.db.execute("UPDATE worlds SET last_used=? WHERE id=?", (self.clock(), world["id"]))
             self.db.execute("UPDATE runs SET empty_since=NULL WHERE id=?", (run_id,))
             self.audit(ckey(actor), "admit", world["id"])
-            return {"ok": True, "world": world["id"], "run": run_id, "role": role,
-                    "mode": "showcase" if role == "guest" and world["visibility"] == "showcase" else "player"}
+            if role == "guest" and world["visibility"] == "showcase":
+                mode = "showcase"
+            elif role == "admin" and ticket["spectate"]:
+                mode = "spectator"  # Checked again here: admin rights may have ended since the join.
+            else:
+                mode = "player"
+            return {"ok": True, "world": world["id"], "run": run_id, "role": role, "mode": mode}
 
     def begin_stop(self, run):
         if run["id"] in self.stop_workers:
