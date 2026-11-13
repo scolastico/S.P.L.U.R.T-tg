@@ -198,3 +198,21 @@ class ServerMusic(unittest.TestCase):
             self.assertEqual(Driver({"music_directory": folder}).music_param(), {"babylon-music": str(Path(folder).resolve())})
         self.assertEqual(Driver({"music_directory": "/nonexistent/babylon-music"}).music_param(), {})
         self.assertEqual(Driver({}).music_param(), {})
+
+
+class RestartCountdown(unittest.TestCase):
+    def test_countdown_closes_joins_and_announces_at_the_marks(self):
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "container"))
+        import entrypoint
+        announced, slept = [], []
+        service = type("Service", (), {"shutting_down": False, "server_notice": None,
+                                       "announce": lambda self, message: announced.append(message)})()
+        entrypoint.restart_countdown(service, 30, sleep=slept.append)
+        self.assertTrue(service.shutting_down)
+        self.assertEqual([m.split(" seconds")[0][-2:].strip() for m in announced], ["30", "10", "5"])
+        self.assertEqual(sum(slept), 30)
+        self.assertIn("restarting now", service.server_notice)
+        quiet = type(service)()
+        entrypoint.restart_countdown(quiet, 0, sleep=slept.append)
+        self.assertTrue(quiet.shutting_down)

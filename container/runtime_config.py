@@ -19,6 +19,8 @@ DEFAULTS = {
     'delete_unused_worlds_after_days': 60, 'empty_grace_seconds': 120,
     'startup_timeout_seconds': 300, 'ticket_lifetime_seconds': 60,
     'shutdown_timeout_seconds': 180,
+    # Countdown in every world before a restart; 0 skips it.
+    'restart_warning_seconds': 30,
     'afk_timeout_seconds': 900,
 }
 
@@ -41,7 +43,7 @@ def settings(env=None, runtime=Path('/run/babylon'), template=ROOT):
         if not re.fullmatch(r'\d+', raw):
             raise ValueError('BABYLON_' + name.upper() + ' must be an integer')
         number = int(raw)
-        minimum = 0 if name in ('delete_unused_worlds_after_days', 'afk_timeout_seconds') else 1
+        minimum = 0 if name in ('delete_unused_worlds_after_days', 'afk_timeout_seconds', 'restart_warning_seconds') else 1
         if number < minimum or ('port' in name and number > 65535):
             raise ValueError('Invalid BABYLON_' + name.upper())
         values[name] = number

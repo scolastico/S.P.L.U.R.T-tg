@@ -99,6 +99,7 @@ def main():
         world = api("create", dict(name="Native smoke", visibility="private"))["id"]
         run = wait_ready(world)
         assert topic(run["port"], run["secret"], "status")["players"] == []
+        assert topic(run["port"], run["secret"], "announce", {"message": "Smoke restart notice"}).get("ok"), "announce failed"
         afk = call(run, "session", "test_afk_policy")
         afk = {entry["entry"]: entry["value"] for entry in afk["entries"]}
         assert afk and all(afk.values()), afk

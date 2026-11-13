@@ -41,7 +41,7 @@ def stop_worlds(config, timeout=180, request=None, sleep=time.sleep, clock=time.
                 raise RuntimeError(result.get('error', 'Supervisor rejected shutdown'))
     log('Saving and stopping %d world(s)...' % len(worlds))
     # A child cannot checkpoint until restoration/initialization has finished.
-    # Closing the lobby already prevents further launches while we wait.
+    # The supervisor refuses new worlds and joins while shutting down (restart_countdown).
     deadline = clock() + max(timeout, config.get('startup_timeout_seconds', 300))
     while any(world['state'] == 'starting' for world in worlds):
         if clock() >= deadline:

@@ -35,6 +35,29 @@ def healthcheck():
         pass
 
 
+LOBBY_HANDOFF_SECONDS = 8
+
+
+def restart_countdown(service, seconds, sleep=time.sleep):
+    """Closes new joins and counts down in every world (and the lobby) before shutting down."""
+    service.shutting_down = True
+    if seconds <= 0:
+        return
+    remaining = seconds
+    for mark in sorted({seconds, 10, 5}, reverse=True):
+        if mark > seconds:
+            continue
+        sleep(remaining - mark)
+        remaining = mark
+        message = ('The server restarts in %d seconds. Your world is saved first, then you return to the '
+                   'lobby and reconnect automatically once the server is back.' % mark)
+        service.server_notice = message
+        log('Restart countdown: %d seconds' % mark)
+        service.announce(message)
+    sleep(remaining)
+    service.server_notice = 'The server is restarting now. You reconnect automatically once it is back.'
+
+
 def main():
     config, lobby, limits = write_settings()
     data = Path(config['data_directory'])
@@ -67,6 +90,7 @@ def main():
         signal.signal(kind, lambda *_: stopping.set())
     log('Lobby address: ' + config['lobby_address'])
     exit_code = 0
+    handed_over = False
     while True:
         if menu.poll() is not None or not api.is_alive():
             log('A cluster component exited (lobby exit code %s); saving worlds before restart.' % menu.poll())
@@ -76,9 +100,13 @@ def main():
             if bot:
                 bot.stop()  # Marks the status message offline.
                 bot = None
-            if menu.poll() is None:
-                menu.terminate()  # Lobby has no gameplay state; close admissions first.
-                menu.wait(timeout=10)
+            lobby_running = menu.poll() is None
+            if not handed_over:
+                # The lobby stays up until the worlds have sent their players to it: clients
+                # connected to the lobby reconnect to it on their own once the server is back.
+                handed_over = True
+                restart_countdown(service, limits['restart_warning_seconds'] if lobby_running and not exit_code else 0)
+            players = service.players_in_worlds()
             def stop(actor, world):
                 return service.dispatch(actor, 'stop', {'world': world})
             def tick(delay):
@@ -92,6 +120,13 @@ def main():
                 log('Shutdown could not complete; worlds retained: %s. Retrying...' % error)
                 time.sleep(5)
                 continue
+            if menu.poll() is None:
+                if players:
+                    # Give the players sent back from their worlds time to arrive in the lobby.
+                    log('Waiting %ss for %d player(s) to reach the lobby.' % (LOBBY_HANDOFF_SECONDS, players))
+                    time.sleep(LOBBY_HANDOFF_SECONDS)
+                menu.terminate()
+                menu.wait(timeout=10)
             return exit_code
 
 

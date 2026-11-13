@@ -180,6 +180,15 @@ class DiscordLinks(unittest.TestCase):
         manage("admin", "unban", "friend")
         self.assertTrue(self.s.dispatch("friend", "join", dict(world=run["world"]))["ok"])
 
+    def test_no_new_worlds_or_joins_while_shutting_down(self):
+        world = self.s.dispatch("owner", "create", dict(name="Open", visibility="public"))["id"]
+        self.s.shutting_down = True
+        self.s.server_notice = "The server restarts in 30 seconds."
+        for action, data in (("create", dict(name="New", visibility="public")), ("join", dict(world=world))):
+            with self.assertRaisesRegex(Denied, "restarting"):
+                self.s.dispatch("owner", action, data)
+        self.assertEqual(self.s.dispatch("owner", "list", {})["server_notice"], "The server restarts in 30 seconds.")
+
     def test_ahelp_replies_reach_only_a_running_world(self):
         run = self.running_world()
         self.assertTrue(self.s.ahelp_reply(run["id"], "Some Player", "Mod", "On my way")["ok"])

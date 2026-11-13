@@ -202,6 +202,9 @@ class Driver:
     def ahelp_close(self, run, payload):
         return topic(run["port"], run["secret"], "ahelp_close", payload)
 
+    def announce(self, run, message):
+        return topic(run["port"], run["secret"], "announce", {"message": message})
+
 
 class Supervisor:
     def __init__(self, config, driver=None, clock=time.time):
@@ -252,6 +255,9 @@ class Supervisor:
         self.discord_link_changed = None
         # Called with each adminhelp event from a child world (the Discord bot relays them).
         self.ahelp_relay = None
+        # Set while the container shuts down: no new worlds or joins, and a notice for the lobby.
+        self.shutting_down = False
+        self.server_notice = None
         # Returns how many admins are online on Discord (or None), for the player's ahelp notice.
         self.ahelp_admins_online = None
         self.checkpoints = Checkpoints(config["data_directory"], config.get("kept_save_points_per_world", 4))
@@ -563,6 +569,20 @@ class Supervisor:
             raise Denied(str(result.get("result") or result.get("error") or "The reply could not be delivered"))
         return result
 
+    def announce(self, message):
+        """A notice in the chat of every running world (shutdown countdown)."""
+        with self.lock:
+            runs = [dict(r) for r in self.db.execute("SELECT * FROM runs WHERE state='running'")]
+        for run in runs:
+            try:
+                self.driver.announce(run, message)
+            except Exception as error:
+                log(f"Announcing to {self.describe(run['world'])} failed: {error}")
+
+    def players_in_worlds(self):
+        with self.lock:
+            return sum(len(json.loads(r["players"] or "[]")) for r in self.db.execute("SELECT players FROM runs"))
+
     def status_snapshot(self):
         """Server-wide state for the Discord status message. Private worlds stay anonymous."""
         with self.lock:
@@ -615,10 +635,12 @@ class Supervisor:
                                       last_save=run["last_save"] if run else self.last_save(world["id"]),
                                       error=run["error"] if run else None,
                                       last_active=time.strftime("%Y-%m-%d %H:%M", time.localtime(world["last_used"])))
-                return {"ok": True, "worlds": worlds, "admin": actor in self.admins,
+                return {"ok": True, "worlds": worlds, "admin": actor in self.admins, "server_notice": self.server_notice,
                         "discord": self.discord_state(actor),
                         "delete_unused_worlds_after_days": self.config.get("delete_unused_worlds_after_days", 60),
                         "limits": {k: v for k, v in self.config.items() if k.startswith("max_")}}
+            if action in ("create", "join") and self.shutting_down:
+                raise Denied("The server is restarting. Try again in a minute.")
             if action == "create":
                 self.require_discord(actor, "create")
                 count = self.row("SELECT count(*) n FROM worlds WHERE owner=?", (actor,))["n"]

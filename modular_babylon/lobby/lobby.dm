@@ -201,6 +201,8 @@ var/global/list/lobby_config
 	content += "<p class='muted'>[descriptions[view_filter]]</p>"
 	if(result["admin"])
 		content += "<p><span class='badge'>Server administrator</span> <small>Your account can see private worlds and bypass their admission restrictions.</small></p>"
+	if(result["server_notice"])
+		content += "<p class='notice' role='alert'><b>[html_encode(result["server_notice"])]</b></p>"
 	content += discord_bar(result["discord"])
 	if(notice)
 		content += "<p class='notice' role='status'>[html_encode(notice)]</p>"

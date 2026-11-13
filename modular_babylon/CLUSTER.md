@@ -393,6 +393,16 @@ docker volume inspect <project>_babylon-music --format '{{ .Mountpoint }}'
 sudo mkdir -p <mountpoint>/space && sudo cp my-tracks/*.ogg <mountpoint>/space/
 ```
 
+## Restarts
+
+When the container stops (a deploy or `docker stop`), new worlds and joins are refused and
+every world counts down in chat (`BABYLON_RESTART_WARNING_SECONDS`, default 30, at the
+start and at 10 and 5 seconds); the lobby shows the same notice. Then each world saves and
+sends its players to the lobby, which stays up for a few more seconds until they arrive.
+Only then does the lobby stop, so players are connected to the lobby address and their game
+reconnects to it on its own once the server is back. The whole shutdown has to fit Docker's
+`stop_grace_period`.
+
 ## AFK disconnection
 
 Worlds disconnect inactive players after 900 seconds (15 minutes) by default.
