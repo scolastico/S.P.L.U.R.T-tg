@@ -43,6 +43,7 @@ RUN python3 container/stage-runtime.py /src /opt/babylon
 FROM build AS check
 RUN DreamMaker -DCBT babylon-test.dme && DreamMaker -DCBT tgstation.dme \
  && python3 -m unittest discover -s services/supervisor -v \
+ && python3 -m unittest discover -s tools/babylon -p 'test_*.py' -v \
  && node tools/babylon/test_lobby_loading.cjs \
  && node container/test_cleanup.cjs
 

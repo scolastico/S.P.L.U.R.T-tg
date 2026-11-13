@@ -1,0 +1,40 @@
+name: Discord changelog
+
+# Posts the changelog to a Discord channel as embed cards. Set the action secret
+# DISCORD_CHANGELOG_WEBHOOK (the channel's webhook URL) and the action variable
+# DISCORD_CHANGELOG to choose what is posted:
+#   commit   every commit of each push to the default branch (all of them when
+#            several commits are pushed at once)
+#   release  the description of each published release
+# Unset or any other value posts nothing. The optional variable
+# DISCORD_CHANGELOG_ROLE (a role ID) is mentioned above each post.
+
+on:
+  push:
+    branches: [main, master]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+# No concurrency group: a pending run would replace an earlier pending one and
+# its commits would never be posted.
+jobs:
+  post:
+    if: >-
+      (vars.DISCORD_CHANGELOG == 'commit' && github.event_name == 'push') ||
+      (vars.DISCORD_CHANGELOG == 'release' && github.event_name == 'release')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tools/babylon/discord_changelog.py
+          sparse-checkout-cone-mode: false
+      - name: Post to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_CHANGELOG_WEBHOOK }}
+          DISCORD_CHANGELOG_ROLE: ${{ vars.DISCORD_CHANGELOG_ROLE }}
+          MODE: ${{ vars.DISCORD_CHANGELOG }}
+        run: python3 tools/babylon/discord_changelog.py "$MODE"

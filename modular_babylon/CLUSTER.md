@@ -156,6 +156,13 @@ ordinary upstream builds and runs Python/browser tests for PRs and pushes to
   `KOMODO_WEBHOOK_SECRET`; without both the step is skipped. Set the action variable
   `KOMODO_NOTIFY_UNSTABLE` to `true` to also trigger it after every published
   unstable build of the default branch (for deployments tracking `:unstable`). Release tags are literal Docker tags; `v1.0.0` remains `:v1.0.0`.
+- The separate `Discord changelog` workflow posts to a Discord channel as embed
+  cards. Set the action secret `DISCORD_CHANGELOG_WEBHOOK` (the channel's webhook
+  URL) and the action variable `DISCORD_CHANGELOG`: `commit` posts every commit of
+  each push to the default branch (all of them when several are pushed at once,
+  continued on further cards when one is not enough), `release` posts each published
+  release's description. Unset, nothing is posted. The optional variable
+  `DISCORD_CHANGELOG_ROLE` (a role ID) is mentioned above each post.
 - Main/default-branch runs cancel older runs in their concurrency group. PRs
   are grouped by ref; release runs use separate groups and are not cancelled.
 - Cleanup never deletes versions with `latest`, a release tag, or any other
