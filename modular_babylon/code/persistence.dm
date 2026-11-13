@@ -388,6 +388,7 @@
 		state["research"] = list("nodes" = research.researched_nodes.Copy(), "designs" = research.researched_designs.Copy(), "points" = research.research_points.Copy(), "target" = research.babylon_target, "target_by" = research.babylon_target_by, "target_location" = research.babylon_target_location)
 	state["sun"] = list("azimuth" = SSsun.azimuth, "azimuth_mod" = SSsun.azimuth_mod, "base_rotation" = SSsun.base_rotation)
 	state["lore"] = GLOB.babylon_lore.snapshot()
+	state["play_time"] = play_time
 	checkpoint_capture_ms = (REALTIMEOFDAY - checkpoint_started) * 100
 	release_checkpoint()
 	CHECK_TICK
@@ -673,6 +674,7 @@
 		research.babylon_target_location = research_data["target_location"]
 		research.babylon_try_finish()
 	GLOB.babylon_lore.restore(state["lore"])
+	play_time = isnum(state["play_time"]) ? state["play_time"] : 0
 	if((state["version"] || 1) < 7)
 		restore_lost_supermatter()
 	to_chat(world, span_notice("Babylon resumed from [last_save]."))

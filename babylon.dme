@@ -29,6 +29,7 @@
 #include "modular_babylon/code/world_players.dm"
 #include "modular_babylon/code/interface.dm"
 #include "modular_babylon/code/music.dm"
+#include "modular_babylon/code/play_time.dm"
 #ifdef BABYLON_TESTING
 #include "modular_babylon/code/testing.dm"
 #endif

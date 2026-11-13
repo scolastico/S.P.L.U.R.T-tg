@@ -466,3 +466,27 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	qdel(join)
 	qdel(ghost)
 	return result
+
+/// Play time is kept per player in the checkpoint and restored with it (play_time.dm).
+/datum/babylon_save/proc/test_play_time()
+	var/list/result = list()
+	result["text_format"] = babylon_play_time_text(3 HOURS + 7 MINUTES) == "3h 07m" && babylon_play_time_text(30 SECONDS) == "under a minute"
+	var/datum/babylon_save/player = new
+	player.play_time = 42 MINUTES
+	var/list/snapshot = player_snapshot(player)
+	var/datum/babylon_save/restored = new
+	restore_player(restored, snapshot)
+	result["player_time_survives_a_checkpoint"] = restored.play_time == 42 MINUTES
+	var/datum/babylon_save/older = new
+	restore_player(older, list())
+	result["older_checkpoints_start_at_zero"] = older.play_time == 0
+	// Nobody connected: time passes, play time does not.
+	var/before = play_time
+	play_time_counted_at = REALTIMEOFDAY - 5 SECONDS
+	var/list/sessions = player_sessions
+	player_sessions = list()
+	count_play_time()
+	player_sessions = sessions
+	result["empty_world_does_not_count"] = play_time == before
+	result["watchdog_log_shows_it"] = !!findtext(GLOB.babylon_lore.render_core_log(), "time awake, this world")
+	return result

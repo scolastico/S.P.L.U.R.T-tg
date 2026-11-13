@@ -89,7 +89,7 @@
 	return player
 
 /datum/babylon_save/proc/player_snapshot(datum/babylon_save/player)
-	return list("builder" = !QDELETED(player.builder) ? player.builder.babylon_save_id : null, "respawn_pending" = player.respawn_pending, "respawn_remaining" = max(0, player.respawn_ready_at - world.time), "spawn_x" = player.respawn_turf?.x, "spawn_y" = player.respawn_turf?.y, "profile" = player.respawn_pending ? player.drone_profile.Copy() : player.capture_drone_profile())
+	return list("builder" = !QDELETED(player.builder) ? player.builder.babylon_save_id : null, "respawn_pending" = player.respawn_pending, "respawn_remaining" = max(0, player.respawn_ready_at - world.time), "spawn_x" = player.respawn_turf?.x, "spawn_y" = player.respawn_turf?.y, "profile" = player.respawn_pending ? player.drone_profile.Copy() : player.capture_drone_profile(), "play_time" = player.play_time)
 
 /datum/babylon_save/proc/restore_player(datum/babylon_save/player, list/snapshot)
 	player.station_z = station_z
@@ -97,6 +97,7 @@
 	player.respawn_pending = snapshot["respawn_pending"]
 	player.respawn_ready_at = player.respawn_pending ? world.time + snapshot["respawn_remaining"] : 0
 	player.drone_profile = snapshot["profile"] || list()
+	player.play_time = isnum(snapshot["play_time"]) ? snapshot["play_time"] : 0
 	if(snapshot["spawn_x"] && snapshot["spawn_y"])
 		player.respawn_turf = locate(snapshot["spawn_x"], snapshot["spawn_y"], station_z)
 	var/mob/living/basic/drone/babylon/drone = player.builder

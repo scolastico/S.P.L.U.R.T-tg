@@ -83,6 +83,8 @@ GLOBAL_DATUM_INIT(babylon_lore, /datum/babylon_lore_state, new)
 	var/selves = max(1, length(GLOB.babylon_save.player_sessions))
 	var/drift = reseats ? num2text(0.4 * reseats / selves, 3) : "0"
 	var/recent = length(events) ? events.Join("\n") : "none. keep it that way."
+	var/list/awake_lines = babylon_play_time_report()
+	var/awake = length(awake_lines) ? awake_lines.Join("\n") : " none yet."
 	var/inner_line = inner_open ? "[stamp(inner_opened_at)]  pulse at inner console ([opener]). archive unseal -> GRANTED.\n           heartbeats: [heartbeat_count()]" : "[stamp(null)]  archive unseal: pending pulse."
 	return {"### CONTINUITY WATCHDOG // core log, this world
 
@@ -108,6 +110,10 @@ t+?        cell crossed reserve. waking.
 selves seated in this world: [selves]
 re-seats to date:            [reseats]
 drift, mean:                 [drift]%
+time awake, this world:      [babylon_play_time_text(GLOB.babylon_save.play_time)]
+
+time awake, per self:
+[awake]
 
 recent:
 [recent]
@@ -297,6 +303,7 @@ recent:
 /obj/structure/babylon_watchdog_server/examine(mob/user)
 	. = ..()
 	. += span_notice("Reserve cell: holding. Re-seats to date: [GLOB.babylon_lore.reseats]. Archive: [GLOB.babylon_lore.inner_open ? "unsealed" : "sealed"].")
+	. += span_notice("Time awake in this world: [babylon_play_time_text(GLOB.babylon_save.play_time)].[isnull(babylon_player_play_time(user?.ckey)) ? "" : " Your self: [babylon_play_time_text(babylon_player_play_time(user.ckey))]."]")
 	. += span_notice("Touch the printer to print the current core log.")
 
 /obj/structure/babylon_watchdog_server/attack_hand(mob/living/user, list/modifiers)
