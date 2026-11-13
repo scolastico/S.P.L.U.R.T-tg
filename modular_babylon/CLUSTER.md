@@ -382,8 +382,12 @@ Files directly in `/music` are ignored. Formats: `.ogg`, `.mp3` and `.wav`.
 
 Tracks play one after another in random order with a 30-second pause; a new place's
 music takes over after the player stays there 5 seconds, so walking through a door does
-not cut it. Players set the volume (or turn it off with 0) with **Jukebox volume** in
-the game preferences. Worlds scan the folder when they start, so new tracks reach a
+not cut it. Players set the volume (or turn it off with 0) with **Server music volume**
+in the game preferences, or mute and unmute it with **Toggle Server Music** in the OOC
+tab. While a track plays, the status tab shows its file name (without the extension,
+underscores as spaces), so name files the way players should see them. Its **[?]**
+explains in chat that the server's tracks have their own licenses and that players who
+record or stream should mute them. Worlds scan the folder when they start, so new tracks reach a
 world on its next start. Without the folder nothing plays and nothing else changes.
 
 To fill the volume on the host, for example:

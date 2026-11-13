@@ -310,6 +310,7 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	result["engine_room_folder"] = music.folder_for(engine) == "engineering/engine"
 	result["hallway_falls_back_to_station"] = music.folder_for(hallway) == "station"
 	result["space_folder"] = !!void && music.folder_for(void) == "space"
+	result["title_from_file_name"] = babylon_music_title("/music/space/Deep_Space Drift.v2.ogg") == "Deep Space Drift.v2"
 	fdel(music.root)
 	return result
 
