@@ -350,6 +350,12 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	fdel(music.root)
 	return result
 
+/// Joining must not preload the whole .rsc: DreamSeeker keeps its start splash up until it is done.
+/datum/babylon_save/proc/test_join_loading()
+	var/list/result = list()
+	result["resources_load_on_demand"] = /client::preload_rsc == 0
+	return result
+
 /datum/babylon_save/proc/test_space_wrap()
 	var/list/result = list()
 	var/middle = round(world.maxy / 2)

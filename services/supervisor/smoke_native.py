@@ -128,6 +128,9 @@ def main():
         music = call(run, "session", "test_music_folders")
         music = {entry["entry"]: entry["value"] for entry in music["entries"]}
         assert music and all(music.values()), music
+        joining = call(run, "session", "test_join_loading")
+        joining = {entry["entry"]: entry["value"] for entry in joining["entries"]}
+        assert joining and all(joining.values()), joining
         wrap = call(run, "session", "test_space_wrap")
         wrap = {entry["entry"]: entry["value"] for entry in wrap["entries"]}
         assert wrap and all(wrap.values()), wrap

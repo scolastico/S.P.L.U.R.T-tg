@@ -1,6 +1,14 @@
 // Babylon's game window: a smaller top bar, the world's name as the station's, no round ID,
 // and no verbs for systems Babylon does not have (antags, OPFOR, round end, votes, jobs ...).
 
+/client
+	/// Resources load on demand instead of preloading the whole .rsc (over 300 MB) at login.
+	/// DreamSeeker keeps its "Your game will begin shortly" splash up until a preload finishes,
+	/// so the first join after every new build sat behind it for minutes (and the window
+	/// watchdog below showed the game with the splash still open). Upstream sets PRELOAD_RSC 1
+	/// in _compile_options.dm; its external-URL alternative needs a download server per build.
+	preload_rsc = 0
+
 /client/New(TopicData)
 	. = ..()
 	if(!src)
