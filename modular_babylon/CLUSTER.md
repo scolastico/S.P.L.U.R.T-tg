@@ -387,6 +387,7 @@ Players rebuild the station as they like (a reactor may stand in the old chapel)
 mood follows what is around the player, not the room's original name:
 
 ```
+/music/vault/      inside the Continuity Vault, the watchdog server's room
 /music/space/      outside the hull
 /music/engine/     near a power generator, wherever it was built
 /music/derelict/   inside, where the air is too thin to breathe (below 50 kPa)
@@ -396,7 +397,8 @@ mood follows what is around the player, not the room's original name:
 The checks run in that order. Generators are supermatter crystals, tesla coils and
 grounding rods, portable generators (P.A.C.M.A.N. ...), thermoelectric generators, RTGs,
 turbines, RBMK reactors, stirling generators and wind turbines; solar panels and power
-storage do not count, nor generators packed in a crate. An empty `engine/` or `derelict/`
+storage do not count, nor generators packed in a crate. An empty `vault/` uses the other
+moods' rules; an empty `engine/` or `derelict/`
 falls back to the derelict or station music; an empty `space/` or `station/` is silent
 there. Other folders and files directly in `/music` are ignored (a world logs folders it
 does not know). Formats: `.ogg`, `.mp3` and `.wav`.

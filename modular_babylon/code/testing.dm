@@ -296,15 +296,21 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	var/datum/babylon_music/music = new
 	music.root = "data/babylon_music_test/"
 	fdel(music.root)
-	for(var/track in list("space/a.ogg", "station/b.mp3", "derelict/c.wav", "engine/d.ogg", "loose.ogg", "station/notes.txt"))
+	for(var/track in list("space/a.ogg", "station/b.mp3", "derelict/c.wav", "engine/d.ogg", "vault/e.ogg", "loose.ogg", "station/notes.txt"))
 		text2file("", "[music.root][track]")
 	music.scan_folder("", 0)
-	result["folders_scanned"] = length(music.tracks) == 4 && length(music.tracks["station"]) == 1
+	result["folders_scanned"] = length(music.tracks) == 5 && length(music.tracks["station"]) == 1
 	var/turf/void
 	for(var/turf/open/space/candidate in block(locate(1, 1, station_z), locate(world.maxx, 5, station_z)))
 		void = candidate
 		break
 	result["space_folder"] = !!void && music.folder_for(void) == "space"
+	var/turf/vault = locate(/obj/structure/babylon_watchdog_server) in world
+	vault = get_turf(vault)
+	result["vault_folder"] = !!vault && music.folder_for(vault) == "vault"
+	music.tracks -= "vault"
+	result["empty_vault_falls_back"] = !!vault && music.folder_for(vault) != "vault" && !isnull(music.folder_for(vault))
+	music.tracks["vault"] = list("[music.root]vault/e.ogg")
 	// A floor away from the wreck's own generators; its air decides derelict or station.
 	music.engine_radius = 3
 	var/turf/open/floor/floor

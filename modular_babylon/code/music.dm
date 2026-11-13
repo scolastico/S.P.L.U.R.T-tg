@@ -4,13 +4,14 @@
  * music stays server specific. Subfolders choose the mood a track plays in; players rebuild
  * the station as they like, so the mood follows what is around them, not the room's name:
  *
+ *   vault/      inside the Continuity Vault (the watchdog server's room)
  *   space/      outside the hull
  *   engine/     within BABYLON_MUSIC_ENGINE_RADIUS tiles (default 10, 0 = off) of a power
  *               generator, wherever it was built; solar panels do not count
  *   derelict/   inside, where the air is too thin to breathe (not pressurized yet)
  *   station/    inside, with air
  *
- * An empty engine/ or derelict/ falls back to the derelict/station music. Tracks (.ogg, .mp3,
+ * An empty vault/ falls back to the other moods, an empty engine/ or derelict/ falls back to the derelict/station music. Tracks (.ogg, .mp3,
  * .wav) play one after another, with a pause between them, at the player's "Server music
  * volume" (its own preference, toggled from the OOC tab). A new mood takes over only once the
  * player has stayed in it for BABYLON_MUSIC_DEBOUNCE_SECONDS (default 20), so a quick trip
@@ -20,13 +21,14 @@
  */
 
 #define BABYLON_MUSIC_GAP (30 SECONDS)
+#define BABYLON_MUSIC_MOODS list("vault", "space", "engine", "derelict", "station")
 
 GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 
 /datum/babylon_music
 	/// The music folder with a trailing slash, or null without music.
 	var/root
-	/// Folder ("space", "engine", "derelict", "station") -> list of track paths.
+	/// Folder (BABYLON_MUSIC_MOODS) -> list of track paths.
 	var/list/tracks = list()
 	var/scanned = FALSE
 	/// Tiles around a power generator that play engine/ music; 0 turns it off.
@@ -60,8 +62,8 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 	var/count = 0
 	for(var/folder in tracks)
 		count += length(tracks[folder])
-		if(!(folder in list("space", "engine", "derelict", "station")))
-			log_world("Babylon music: [root][folder]/ is not a mood folder (space, engine, derelict, station); its tracks never play.")
+		if(!(folder in BABYLON_MUSIC_MOODS))
+			log_world("Babylon music: [root][folder]/ is not a mood folder ([jointext(BABYLON_MUSIC_MOODS, ", ")]); its tracks never play.")
 	log_world("Babylon music: [count] track(s) in [length(tracks)] folder(s) under [root]; engine radius [engine_radius], debounce [debounce / (1 SECONDS)] s.")
 
 /// A whole number from the environment, at least 0, or the fallback.
@@ -91,6 +93,8 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 	var/turf/place = get_turf(listener)
 	if(!place)
 		return null
+	if(tracks["vault"] && istype(get_area(place), /area/ruin/space/bb13/engineering/vault/inner))
+		return "vault"
 	if(isspaceturf(place) || istype(get_area(place), /area/space))
 		return tracks["space"] ? "space" : null
 	if(tracks["engine"] && near_engine(place))
@@ -255,3 +259,4 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 	to_chat(src, fieldset_block("Server music", span_infoplain(jointext(lines, "<br>")), "boxed_message"), type = MESSAGE_TYPE_INFO)
 
 #undef BABYLON_MUSIC_GAP
+#undef BABYLON_MUSIC_MOODS
