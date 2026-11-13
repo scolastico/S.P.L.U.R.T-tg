@@ -236,7 +236,8 @@ var/global/list/lobby_config
 				rendered += "<a class='button primary' data-world='[world_name]' data-stage='Preparing your connection...' onclick='return beginAction(this)' href='?src=\ref[src];action=join;world=[id]'>[join_label]</a>"
 				// Admins can look around as an invisible ghost instead of leaving a drone behind.
 				if(card["role"] == "admin")
-					rendered += "<a class='button' data-world='[world_name]' data-stage='Preparing your connection...' onclick='return beginAction(this)' href='?src=\ref[src];action=join;spectate=1;world=[id]'>[card["state"] == "stopped" ? "Start and spectate" : "Spectate"]</a>"
+					var/spectate_label = card["state"] == "stopped" ? "Start and spectate" : "Spectate"
+					rendered += "<a class='button' data-world='[world_name]' data-stage='Preparing your connection...' onclick='return beginAction(this)' href='?src=\ref[src];action=join;spectate=1;world=[id]'>[spectate_label]</a>"
 				if(card["visibility"] == "showcase" && card["role"] == "guest")
 					rendered += "<small>Visible ghost visit: explore and chat only. Membership is required to build.</small>"
 			else
