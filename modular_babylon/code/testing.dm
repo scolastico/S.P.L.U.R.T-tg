@@ -429,7 +429,7 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	qdel(plush)
 	return result
 
-/// No pAI or station AI can be researched, built or found (silicons.dm).
+/// No pAI, station AI, MMI or positronic brain can be researched, built or found (silicons.dm).
 /datum/babylon_save/proc/test_no_unplayable_silicons()
 	var/list/result = list()
 	var/designs = FALSE
@@ -453,6 +453,12 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	result["pai_cards_are_removed"] = QDELETED(card)
 	var/obj/structure/ai_core/core = new(respawn_turf)
 	result["ai_cores_are_removed"] = QDELETED(core)
+	var/obj/item/mmi/mmi = new(respawn_turf)
+	var/obj/item/mmi/posibrain/posibrain = new(respawn_turf)
+	result["loose_mmis_and_posibrains_are_removed"] = QDELETED(mmi) && QDELETED(posibrain)
+	var/datum/techweb/brains = new /datum/techweb
+	result["no_mmi_or_posibrain_research"] = !brains.add_design_by_id("mmi") && !brains.add_design_by_id("mmi_posi") && !brains.add_design_by_id("posisphere")
+	qdel(brains)
 	var/mob/dead/observer/ghost = new(respawn_turf)
 	var/datum/action/innate/join_soulcatcher/join = new(ghost)
 	join.Grant(ghost)

@@ -40,13 +40,14 @@ that progress, income without a target is dropped and switching targets starts
 over. The target is saved with the world. After an upstream merge, re-check
 `add_point_list`, `research_node`, `complete_experiment`, the queue procs and
 the R&D console / PDA `research_node` and `ui_data` against it. It also removes
-designs Babylon never offers (ERP, pAI, AI core) from every node in
+designs Babylon never offers (ERP, pAI, AI core, MMI, positronic brain) from every node in
 `SSresearch.calculate_techweb_nodes` and refuses them in `/datum/techweb/add_design`;
 `/datum/techweb_node/Initialize` is not usable for that, because upstream's
 `initialize_all_techweb_nodes` calls it on the old, empty node list.
 
-`modular_babylon/code/silicons.dm` removes pAIs and station AIs, which no one can
-play: pAI cards and AI cores delete themselves on creation (wreck, saves, loot),
+`modular_babylon/code/silicons.dm` removes pAIs, station AIs, MMIs and positronic
+brains, which no one can play: pAI cards, AI cores and loose MMIs/posibrains delete
+themselves on creation (wreck, saves, loot), their designs are removed,
 the plasteel "AI core" recipe and the PDA vendor's pAI cards are gone, and ghosts
 get no "Enter Soulcatcher" button. After an upstream merge, re-check new sources
 of pAI cards, AI cores and ghost-joinable silicons against it.
