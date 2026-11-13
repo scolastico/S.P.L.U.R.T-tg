@@ -1,5 +1,5 @@
-window "lobby"
-	elem "lobby"
+window "mainwindow"
+	elem "mainwindow"
 		type = MAIN
 		size = 1000x720
 		is-default = true

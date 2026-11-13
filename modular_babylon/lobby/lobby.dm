@@ -128,10 +128,14 @@ var/global/list/lobby_config
 // loop) must be reset here, or the new client gets an empty grey window.
 /mob/lobby/Login()
 	..()
+	// The lobby's main window has the game skin's id, "mainwindow": on a link() between the
+	// lobby and a world, DreamSeeker swaps skins, and after BYOND's Members-ad countdown its
+	// handover left the new main window hidden behind the start splash (testing whether the
+	// same id avoids it).
 	// The skin's static icon is not shown: the window exists before the client has the
 	// resource. Set it at login, as the game worlds do.
 	var/static/window_icon = 'modular_babylon/icons/babylon13_64.png'
-	winset(src, "lobby", "icon=\ref[window_icon]")
+	winset(src, "mainwindow", "icon=\ref[window_icon]")
 	loc = locate(1, 1, 1)
 	browser_initialized = 0
 	last_browser_content = ""
@@ -181,7 +185,7 @@ var/global/list/lobby_config
 
 /mob/lobby/proc/show_loading(world_name, stage)
 	if(client)
-		src << output(list2params(list(world_name, stage)), "lobby.browser:showLobbyLoading")
+		src << output(list2params(list(world_name, stage)), "mainwindow.browser:showLobbyLoading")
 
 /mob/lobby/proc/operation_api(action, list/payload, world_name, stage)
 	show_loading(world_name, stage)
@@ -266,10 +270,10 @@ var/global/list/lobby_config
 		// json_encode leaves "</script>" as is; inside the inline script it would end the script.
 		var/initial = replacetext(json_encode(json_encode(list("html" = content, "view" = view_filter, "revision" = revision, "complete" = 1))), "</", "<\\/")
 		var/shell = "[page_start()]<main id='browser-content'></main><div id='action-loading' style='display:none'>[loading_panel("Your world", "Working...")]</div><script>renderLobby([initial]);</script></body></html>"
-		src << browse(shell, "window=lobby.browser")
+		src << browse(shell, "window=mainwindow.browser")
 		browser_initialized = 1
 	else if(complete || content != last_browser_content)
-		src << output(list2params(list(json_encode(list("html" = content, "view" = view_filter, "revision" = revision, "complete" = complete)))), "lobby.browser:renderLobby")
+		src << output(list2params(list(json_encode(list("html" = content, "view" = view_filter, "revision" = revision, "complete" = complete)))), "mainwindow.browser:renderLobby")
 	last_browser_content = content
 
 /mob/lobby/Topic(href, list/params)

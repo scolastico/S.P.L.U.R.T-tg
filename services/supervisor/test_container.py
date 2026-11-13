@@ -178,6 +178,18 @@ class LobbyHtml(unittest.TestCase):
         self.assertEqual(offenders, [])
 
 
+class LobbySkin(unittest.TestCase):
+    def test_lobby_and_worlds_share_the_main_window_id(self):
+        import re
+        root = Path(__file__).resolve().parents[2]
+        def main_window(path):
+            # A window's own properties: the lines up to its first child element.
+            blocks = re.findall(r'^window "(\w+)"\n\telem "\1"\n((?:\t\t.*\n)*)', (root / path).read_text(), re.M)
+            return [name for name, props in blocks if "type = MAIN" in props and "is-default = true" in props]
+        self.assertEqual(main_window("modular_babylon/lobby/lobby.dmf"), main_window("interface/skin.dmf"))
+        self.assertEqual(main_window("interface/skin.dmf"), ["mainwindow"])
+
+
 class BabylonDmStyle(unittest.TestCase):
     """In DM, `in` binds weaker than && and ||: `a || b in list(...)` means `(a || b) in list(...)`."""
 
