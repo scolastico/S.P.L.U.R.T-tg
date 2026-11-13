@@ -23,6 +23,29 @@
 	// Antag and security OOC channels; admins keep them.
 	if(!holder)
 		remove_verb(src, list(/client/verb/aooc, /client/verb/sooc))
+	// The outermost /client/New override: everything above has returned. A stuck join without
+	// this line means New() never returned, which keeps DreamSeeker on its start splash.
+	log_world("Babylon: [key] finished connecting ([mob?.type]).")
+	babylon_watch_game_window()
+
+/// Some first joins stay on DreamSeeker's "Your game will begin shortly" splash although the
+/// world is done: the game window never appears. Watches for it, logs what happens and shows
+/// the window if it is still hidden after 10 seconds.
+/client/proc/babylon_watch_game_window()
+	set waitfor = FALSE
+	var/started = world.time
+	for(var/attempt in 1 to 30)
+		sleep(2 SECONDS)
+		if(!src)
+			return
+		if(winget(src, "mainwindow", "is-visible") == "true")
+			if(attempt > 1)
+				log_world("Babylon: [key]'s game window appeared after [DisplayTimeText(world.time - started)].")
+			return
+		if(attempt == 5)
+			log_world("Babylon: [key]'s game window is still hidden after 10 seconds; showing it.")
+			winset(src, "mainwindow", "is-visible=true")
+	log_world("Babylon: [key]'s game window never appeared within a minute (mob [mob?.type]).")
 
 /// The top bar keeps Menu, Settings, Fullscreen and Reconnect in upstream's own button slots:
 /// Settings moves into Character's slot and Fullscreen into Settings', Reconnect stays at the
