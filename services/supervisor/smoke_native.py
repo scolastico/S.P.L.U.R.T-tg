@@ -125,6 +125,9 @@ def main():
         closets = call(run, "session", "test_closet_contents")
         closets = {entry["entry"]: entry["value"] for entry in closets["entries"]}
         assert closets and all(closets.values()), closets
+        frames = call(run, "session", "test_machine_frames")
+        frames = {entry["entry"]: entry["value"] for entry in frames["entries"]}
+        assert frames and all(frames.values()), frames
         music = call(run, "session", "test_music_folders")
         music = {entry["entry"]: entry["value"] for entry in music["entries"]}
         assert music and all(music.values()), music

@@ -291,6 +291,49 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	qdel(crate)
 	return result
 
+/// A machine frame with its board and some parts survives a save and can still be finished,
+/// and one from an older save (board only) can be emptied again.
+/datum/babylon_save/proc/test_machine_frames()
+	var/list/result = list()
+	var/turf/place = respawn_turf
+	var/obj/structure/frame/machine/secured/frame = new(place)
+	var/obj/item/circuitboard/machine/tesla_coil/board = new(frame)
+	frame.circuit = board
+	frame.circuit_added(board)
+	frame.components += GLOB.stock_part_datums[/datum/stock_part/capacitor]
+	frame.req_components[/datum/stock_part/capacitor]--
+	var/list/records = list()
+	capture(frame, records, null)
+	var/list/record = records[1]
+	result["progress_saved"] = length(record["frame_parts"]) == 2 && record["frame_required"]["[/datum/stock_part/capacitor]"] == 0
+	// As the load leaves it: the board inside and set as circuit, the part lists gone.
+	var/obj/structure/frame/machine/secured/loaded = new(place)
+	var/obj/item/circuitboard/machine/tesla_coil/loaded_board = new(loaded)
+	loaded.circuit = loaded_board
+	loaded.state = FRAME_STATE_BOARD_INSTALLED
+	restored_atoms[board.babylon_save_id] = loaded_board
+	restore_machine_frame(loaded, record, list(loaded_board))
+	result["progress_restored"] = loaded.req_components?[/datum/stock_part/capacitor] == 0 \
+		&& (GLOB.stock_part_datums[/datum/stock_part/capacitor] in loaded.components) && (loaded_board in loaded.components)
+	frame.components = null // Destroy would qdel the stock part singleton.
+	qdel(frame)
+	var/obj/item/screwdriver/screwdriver = new(place)
+	result["can_be_finished"] = loaded.finalize_construction(null, screwdriver) && !!(locate(/obj/machinery/power/energy_accumulator/tesla_coil) in place)
+	for(var/obj/machinery/power/energy_accumulator/tesla_coil/coil in place)
+		qdel(coil)
+	var/obj/structure/frame/machine/secured/legacy = new(place)
+	var/obj/item/circuitboard/machine/tesla_coil/legacy_board = new(legacy)
+	legacy.circuit = legacy_board
+	legacy.state = FRAME_STATE_BOARD_INSTALLED
+	restore_machine_frame(legacy, list("references" = list()), list(legacy_board))
+	result["legacy_needs_parts"] = legacy.req_components?[/datum/stock_part/capacitor] == 1 && length(legacy.components) == 1
+	legacy.dump_contents()
+	result["legacy_can_be_emptied"] = legacy_board.loc == place && isnull(legacy.components)
+	qdel(legacy_board)
+	qdel(legacy)
+	qdel(screwdriver)
+	return result
+
 /datum/babylon_save/proc/test_music_folders()
 	var/list/result = list()
 	var/datum/babylon_music/music = new

@@ -175,6 +175,8 @@
 	for(var/field in reference_fields)
 		if(field in thing.vars)
 			references[field] = encode_value(thing.vars[field])
+	if(istype(thing, /obj/structure/frame/machine))
+		capture_machine_frame(thing, record)
 	if(istype(thing, /obj/machinery/power/smes))
 		var/obj/machinery/power/smes/smes = thing
 		references["terminal"] = encode_value(smes.terminal)
@@ -483,6 +485,8 @@
 					if(!QDELETED(candidate) && (candidate in used_children))
 						thing.vars["circuit"] = candidate
 						break
+		if(istype(thing, /obj/structure/frame/machine))
+			restore_machine_frame(thing, record, used_children)
 		if(istype(thing, /obj/machinery/airalarm) && references["connected_sensor"])
 			var/obj/machinery/airalarm/alarm = thing
 			var/obj/machinery/air_sensor/sensor = decode_value(references["connected_sensor"])
@@ -496,8 +500,10 @@
 				var/list/parts = list()
 				for(var/list/part as anything in record["parts"])
 					if(part["path"])
-						var/partpath = text2path(part["path"])
-						parts += new partpath()
+						// Stock parts are singletons; the frame and part exchange compare them.
+						var/datum/stock_part/stock_part = GLOB.stock_part_datums[text2path(part["path"])]
+						if(stock_part)
+							parts += stock_part
 					else
 						var/atom/part_atom = decode_value(part)
 						if(part_atom)
@@ -817,3 +823,62 @@
 			if(dominant)
 				filter.filter_type = list(dominant)
 				migration_notes |= "Legacy filter selections recovered from their saved output gases; verify before reactor startup."
+
+/// A machine frame's construction progress: the parts put in (objects, which are also saved
+/// as its contents, and stock parts, which are kept only as their type) and what it still needs.
+/datum/babylon_save/proc/capture_machine_frame(obj/structure/frame/machine/frame, list/record)
+	if(isnull(frame.components) && isnull(frame.req_components))
+		return
+	var/list/parts = list()
+	for(var/part in frame.components)
+		if(istype(part, /datum/stock_part))
+			var/datum/stock_part/stock_part = part
+			parts += list(list("stock_part" = "[stock_part.type]"))
+		else if(isatom(part))
+			parts += list(encode_value(part))
+	record["frame_parts"] = parts
+	var/list/required = list()
+	for(var/path in frame.req_components)
+		required["[path]"] = frame.req_components[path]
+	record["frame_required"] = required
+
+/// Rebuilds the frame's part lists from its board and the saved progress. Without them a
+/// frame with a board installed could neither be finished nor emptied.
+/datum/babylon_save/proc/restore_machine_frame(obj/structure/frame/machine/frame, list/record, list/used_children)
+	var/obj/item/circuitboard/machine/board = frame.circuit
+	if(!istype(board) || board.loc != frame)
+		frame.components = null
+		frame.req_components = null
+		frame.req_component_names = null
+		if(frame.state == FRAME_STATE_BOARD_INSTALLED)
+			frame.state = FRAME_STATE_WIRED
+			frame.update_appearance(UPDATE_ICON_STATE)
+		return
+	frame.circuit_added(board) // The board as the first part and all the parts it needs.
+	var/list/required = record["frame_required"]
+	if(islist(required))
+		for(var/path_text in required)
+			var/path = text2path(path_text)
+			if(path && !isnull(frame.req_components[path]) && isnum(required[path_text]))
+				frame.req_components[path] = max(0, required[path_text])
+		for(var/list/part as anything in record["frame_parts"])
+			if(part["stock_part"])
+				var/datum/stock_part/stock_part = GLOB.stock_part_datums[text2path(part["stock_part"])]
+				if(stock_part)
+					frame.components += stock_part
+				continue
+			var/atom/movable/inserted = decode_value(part)
+			if(inserted && inserted != board && inserted.loc == frame)
+				frame.components |= inserted
+		return
+	// Older saves kept only the board and the parts that stay objects; stock parts and stacks
+	// already put in are lost and have to be added again.
+	for(var/obj/item/inserted in frame.contents)
+		if(inserted == board || !(inserted in used_children))
+			continue
+		for(var/path in frame.req_components)
+			if(frame.req_components[path] > 0 && ispath(path, /obj/item) && istype(inserted, path))
+				frame.components += inserted
+				frame.req_components[path]--
+				break
+	migration_notes |= "Machine frames from older saves keep their circuit board; stock parts already put into them have to be added again."
