@@ -11,6 +11,9 @@
  *   derelict/   inside, where the air is too thin to breathe (not pressurized yet)
  *   station/    inside, with air
  *
+ * A subfolder with an index.json is a loop set (music_loops.dm): loops the game layers
+ * into a track of its own. It takes its turn in the mood like a plain track.
+ *
  * An empty vault/ falls back to the other moods, an empty engine/ or derelict/ falls back to the derelict/station music. Tracks (.ogg, .mp3,
  * .wav) play one after another, with a pause between them, at the player's "Server music
  * volume" (its own preference, toggled from the OOC tab). A new mood takes over only once the
@@ -28,7 +31,7 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 /datum/babylon_music
 	/// The music folder with a trailing slash, or null without music.
 	var/root
-	/// Folder (BABYLON_MUSIC_MOODS) -> list of track paths.
+	/// Folder (BABYLON_MUSIC_MOODS) -> list of track paths and loop sets (/datum/babylon_loop_set).
 	var/list/tracks = list()
 	var/scanned = FALSE
 	/// Tiles around a power generator that play engine/ music; 0 turns it off.
@@ -60,11 +63,16 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 		root += "/"
 	scan_folder("", 0)
 	var/count = 0
+	var/sets = 0
 	for(var/folder in tracks)
-		count += length(tracks[folder])
+		for(var/entry in tracks[folder])
+			if(istype(entry, /datum/babylon_loop_set))
+				sets++
+			else
+				count++
 		if(!(folder in BABYLON_MUSIC_MOODS))
 			log_world("Babylon music: [root][folder]/ is not a mood folder ([jointext(BABYLON_MUSIC_MOODS, ", ")]); its tracks never play.")
-	log_world("Babylon music: [count] track(s) in [length(tracks)] folder(s) under [root]; engine radius [engine_radius], debounce [debounce / (1 SECONDS)] s.")
+	log_world("Babylon music: [count] track(s) and [sets] loop set(s) in [length(tracks)] folder(s) under [root]; engine radius [engine_radius], debounce [debounce / (1 SECONDS)] s.")
 
 /// A whole number from the environment, at least 0, or the fallback.
 /proc/babylon_music_setting(name, fallback)
@@ -76,6 +84,9 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 		return
 	for(var/entry in flist("[root][relative]"))
 		if(copytext(entry, -1) == "/")
+			if(depth == 1 && fexists("[root][relative][entry]index.json"))
+				load_loop_set(LOWER_TEXT(copytext(relative, 1, length(relative))), "[root][relative][entry]")
+				continue
 			scan_folder("[relative][entry]", depth + 1)
 			continue
 		if(!relative) // Tracks belong in a folder that says where they play.
@@ -131,6 +142,7 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 /client
 	/// The music folder now playing for this client, its last track and when the next may start.
 	var/babylon_music_folder
+	/// The last pick: a track path or a /datum/babylon_loop_set.
 	var/babylon_music_track
 	var/babylon_music_next = 0
 	/// When the current track ends; the status tab names it until then.
@@ -144,6 +156,8 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 	return prefs ? prefs.read_preference(/datum/preference/numeric/volume/babylon_server_music) : 0
 
 /client/proc/babylon_stop_music()
+	babylon_music_loops?.stop(immediate = TRUE)
+	babylon_music_loops = null
 	babylon_music_folder = null
 	babylon_music_next = 0
 	babylon_music_playing_until = 0
@@ -166,14 +180,34 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 		if(!folder)
 			babylon_stop_music()
 			return
+		babylon_music_loops?.stop(immediate = FALSE)
+		babylon_music_loops = null
 		babylon_music_folder = folder
 		babylon_music_next = 0 // The new mood's music starts now.
+	if(babylon_music_loops)
+		if(babylon_music_loops.advance(world.time))
+			return
+		babylon_music_loops = null
+		babylon_music_playing_until = 0
+		babylon_music_next = world.time + BABYLON_MUSIC_GAP
 	if(!folder || world.time < babylon_music_next)
 		return
-	var/list/choices = music.tracks[folder].Copy()
+	var/list/choices = list()
+	for(var/entry in music.tracks[folder])
+		var/datum/babylon_loop_set/loop_set = entry
+		var/weight = istype(loop_set) ? loop_set.weight : 1
+		if(weight > 0)
+			choices[entry] = weight
 	if(length(choices) > 1)
 		choices -= babylon_music_track
-	babylon_music_track = pick(choices)
+	babylon_music_track = pick_weight(choices)
+	if(!babylon_music_track)
+		return
+	if(istype(babylon_music_track, /datum/babylon_loop_set))
+		babylon_music_loops = new(src, babylon_music_track, world.time)
+		babylon_music_playing_until = babylon_music_loops.ends_at
+		babylon_music_loops.advance(world.time)
+		return
 	SEND_SOUND(src, sound(file(babylon_music_track), repeat = FALSE, wait = FALSE, volume = volume, channel = CHANNEL_LOBBYMUSIC))
 	var/duration = 0
 	try
@@ -195,6 +229,9 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 		return
 	if(!value)
 		client.babylon_stop_music()
+		return
+	if(client.babylon_music_loops)
+		client.babylon_music_loops.update_volume()
 		return
 	var/sound/update = sound(null)
 	update.channel = CHANNEL_LOBBYMUSIC
@@ -231,6 +268,9 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 
 /// A track's name as players see it: its file name without folder and extension.
 /proc/babylon_music_title(path)
+	if(istype(path, /datum/babylon_loop_set))
+		var/datum/babylon_loop_set/loop_set = path
+		return loop_set.title
 	var/title = "[path]"
 	title = copytext(title, findlasttext(title, "/") + 1)
 	var/dot = findlasttext(title, ".")

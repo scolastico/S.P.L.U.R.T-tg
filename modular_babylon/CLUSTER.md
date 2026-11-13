@@ -426,6 +426,51 @@ docker volume inspect <project>_babylon-music --format '{{ .Mountpoint }}'
 sudo mkdir -p <mountpoint>/space && sudo cp my-tracks/*.ogg <mountpoint>/space/
 ```
 
+### Loop sets
+
+Music sold as loops or stems (separate drums, pad, lead, ... of the same piece) goes into a
+subfolder of a mood folder with an `index.json`, for example `/music/space/drifting/`.
+The game builds a track from it: a few loops play at once, each repeating, and every so
+often one joins, leaves or is swapped for another. A loop set takes its turn in the mood like
+one plain track; after it ends (and the 30-second pause) the mood picks again. Every audio
+file in the folder is a loop, except the intro and outro. All keys are optional; times are
+seconds, and a range is `{"min": a, "max": b}` or a single number:
+
+```json
+{
+  "title": "Drifting",
+  "weight": 2,
+  "layers": {"min": 2, "max": 4},
+  "duration": {"min": 180, "max": 420},
+  "change_every": {"min": 20, "max": 45},
+  "overlap": 4,
+  "sync": true,
+  "always": ["pad.ogg"],
+  "never_together": [["drums_a.ogg", "drums_b.ogg"], ["lead_1.ogg", "lead_2.ogg", "lead_3.ogg"]],
+  "loops": {"lead_1.ogg": {"volume": 70, "weight": 2}, "fx.ogg": {"weight": 0}},
+  "intro": "intro.ogg",
+  "outro": "outro.ogg"
+}
+```
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `title` | folder name | name in the status tab |
+| `weight` | `1` | chance against the mood's other entries (a plain track weighs 1); `0` never plays |
+| `layers` | `1` | loops playing at once (at most 6) |
+| `duration` | `180`-`300` | how long the set plays before the mood picks again |
+| `change_every` | `30`-`60` | time between changes: with more layers wanted one joins, with fewer one leaves, otherwise one is swapped |
+| `overlap` | `4` | seconds a joining loop fades in while a leaving one fades out (also the fade at the end); `0` cuts |
+| `sync` | `true` | a loop joining later starts where it would be had it played from the start, so loops of the same tempo stay on the beat; `false` starts it from its beginning |
+| `always` | none | loops that play the whole time (they count toward `layers`) |
+| `never_together` | none | groups of loops of which at most one plays at a time |
+| `loops` | none | per loop: `volume` 0-100 (default 100) and `weight`, its chance to be picked (default 1; `0` plays it only through `always`) |
+| `intro`, `outro` | none | played once before the loops start, and while they fade out at the end |
+
+Mistakes (unknown files, bad numbers) are logged when a world starts; a set whose
+`index.json` is not valid JSON, or that has no loops, is skipped. For `sync`, cut loops to
+whole bars of the same tempo, ideally the same length or multiples of it.
+
 ## Restarts
 
 When the container stops (a deploy or `docker stop`), new worlds and joins are refused and

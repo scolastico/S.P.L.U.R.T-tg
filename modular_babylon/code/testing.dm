@@ -356,6 +356,68 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	fdel(music.root)
 	return result
 
+/datum/babylon_save/proc/test_music_loops()
+	var/list/result = list()
+	var/datum/babylon_music/music = new
+	music.root = "data/babylon_music_loops_test/"
+	fdel(music.root)
+	for(var/track in list("a.ogg", "b.ogg", "c.ogg", "d.ogg", "e.ogg", "intro.ogg", "notes.txt"))
+		text2file("", "[music.root]space/drift/[track]")
+	text2file(json_encode(list(
+		"title" = "Drift", "weight" = 3, "layers" = list("min" = 2, "max" = 3),
+		"duration" = 60, "change_every" = 10, "overlap" = 0, "intro" = "intro.ogg",
+		"always" = list("a.ogg"), "never_together" = list(list("b.ogg", "c.ogg")),
+		"loops" = list("d.ogg" = list("volume" = 50, "weight" = 0)),
+	)), "[music.root]space/drift/index.json")
+	text2file("{", "[music.root]space/broken/index.json")
+	text2file("", "[music.root]space/broken/x.ogg")
+	text2file("", "[music.root]space/plain.ogg")
+	music.scan_folder("", 0)
+	var/datum/babylon_loop_set/drift
+	for(var/entry in music.tracks["space"])
+		if(istype(entry, /datum/babylon_loop_set))
+			drift = entry
+	result["plain_track_and_one_set"] = length(music.tracks["space"]) == 2 && !!drift
+	result["broken_set_skipped"] = !("[music.root]space/broken/x.ogg" in music.tracks["space"])
+	result["channels_reserved"] = length(music.loop_channels) >= 6
+	if(!drift)
+		return result
+	var/path = "[music.root]space/drift/"
+	result["settings_read"] = drift.title == "Drift" && drift.weight == 3 && drift.layers_min == 2 && drift.layers_max == 3 \
+		&& drift.duration_min == 60 SECONDS && drift.change_min == 10 SECONDS && !drift.overlap && drift.intro == "[path]intro.ogg"
+	result["loops_found"] = length(drift.loops) == 5 && drift.loops["[path]d.ogg"] == 50 && !drift.loop_weights["[path]d.ogg"]
+	result["no_errors"] = !length(drift.errors)
+	var/rules_kept = TRUE
+	var/changed = 0
+	var/list/current = drift.choose(3)
+	for(var/i in 1 to 200)
+		var/list/next = i % 2 ? drift.choose(rand(2, 3)) : drift.next_layers(current)
+		if(!length(next ^ current))
+			changed--
+		changed++
+		current = next
+		if(!("[path]a.ogg" in current) || ("[path]d.ogg" in current) || (("[path]b.ogg" in current) && ("[path]c.ogg" in current)) \
+			|| length(current) < 2 || length(current) > 3)
+			rules_kept = FALSE
+	result["always_never_together_and_layers_kept"] = rules_kept
+	result["layers_change"] = changed > 120
+	var/datum/babylon_loop_player/run = new(null, drift, 0)
+	result["run_starts"] = run.advance(0) && length(run.active) >= 2 && length(run.active) <= 3
+	var/list/first = run.active.Copy()
+	run.advance(5 SECONDS)
+	result["no_change_early"] = !length(first ^ run.active)
+	for(var/second in 10 to 50 step 10)
+		run.advance(second SECONDS)
+	result["run_keeps_rules"] = ("[path]a.ogg" in run.active) && length(run.active) >= 2
+	result["run_ends"] = run.advance(60 SECONDS) && !length(run.active) && !run.advance(70 SECONDS)
+	var/datum/babylon_loop_set/errors = new
+	text2file(json_encode(list("layers" = "many", "always" = list("missing.ogg"))), "[music.root]space/errors/index.json")
+	text2file("", "[music.root]space/errors/z.ogg")
+	result["mistakes_logged"] = errors.load("[music.root]space/errors/") && length(errors.errors) == 2
+	fdel(music.root)
+	qdel(run)
+	return result
+
 /// Joining must not preload the whole .rsc: DreamSeeker keeps its start splash up until it is done.
 /datum/babylon_save/proc/test_join_loading()
 	var/list/result = list()
