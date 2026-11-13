@@ -313,6 +313,27 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	fdel(music.root)
 	return result
 
+/datum/babylon_save/proc/test_space_wrap()
+	var/list/result = list()
+	var/middle = round(world.maxy / 2)
+	var/turf/open/west = locate(1, middle, station_z)
+	var/turf/open/east = locate(world.maxx, middle, station_z)
+	var/turf/open/north = locate(round(world.maxx / 2), world.maxy, station_z)
+	result["west_edge_leads_east"] = istype(west) && west.destination_z == station_z && west.destination_x > world.maxx / 2
+	result["east_edge_leads_west"] = istype(east) && east.destination_z == station_z && east.destination_x < world.maxx / 2
+	result["north_edge_leads_south"] = istype(north) && north.destination_z == station_z && north.destination_y < world.maxy / 2
+	// Drift west into the border: arrive on the east side, still drifting.
+	var/obj/item/stack/rods/drifter = new(locate(TRANSITIONEDGE + 3, middle, station_z))
+	drifter.newtonian_move(dir2angle(WEST), drift_force = 5 NEWTONS)
+	for(var/attempt in 1 to 20)
+		sleep(5)
+		if(drifter.x > world.maxx / 2)
+			break
+	result["drift_wraps_to_the_other_side"] = drifter.z == station_z && drifter.x > world.maxx / 2
+	result["drift_keeps_momentum"] = !!drifter.drift_handler
+	qdel(drifter)
+	return result
+
 /datum/babylon_save/proc/test_no_storyteller()
 	var/list/result = list()
 	result["babylon_storyteller"] = SSgamemode.storyteller?.type == /datum/storyteller/babylon
