@@ -128,6 +128,10 @@ var/global/list/lobby_config
 // loop) must be reset here, or the new client gets an empty grey window.
 /mob/lobby/Login()
 	..()
+	// The skin's static icon is not shown: the window exists before the client has the
+	// resource. Set it at login, as the game worlds do.
+	var/static/window_icon = 'modular_babylon/icons/babylon13_64.png'
+	winset(src, "lobby", "icon=\ref[window_icon]")
 	loc = locate(1, 1, 1)
 	browser_initialized = 0
 	last_browser_content = ""
