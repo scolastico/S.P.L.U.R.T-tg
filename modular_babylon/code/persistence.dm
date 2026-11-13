@@ -543,7 +543,18 @@
 				scrubber.assign_to_area(assigned)
 		if((state["version"] || 1) < 2)
 			recover_legacy(thing, record)
+		// update_icon() drops an atom's managed vis overlays and expects update_overlays() to add
+		// them again. Objects that make theirs only in Initialize (holobarriers, plastic flaps)
+		// kept alpha 0 without their overlay: invisible, though named and attackable.
+		var/list/vis_overlays = thing.managed_vis_overlays?.Copy()
 		thing.update_appearance()
+		if(length(vis_overlays) && !length(thing.managed_vis_overlays) && ismovable(thing))
+			var/atom/movable/shown = thing
+			for(var/obj/effect/overlay/vis/overlay as anything in vis_overlays)
+				if(QDELETED(overlay))
+					continue
+				shown.vis_contents += overlay
+				LAZYADD(shown.managed_vis_overlays, overlay)
 		// Rendering order is runtime-editable and update_appearance may reset it.
 		for(var/field in list("layer", "plane", "pixel_x", "pixel_y", "pixel_z", "alpha"))
 			if((field in record["fields"]) && (field in thing.vars))

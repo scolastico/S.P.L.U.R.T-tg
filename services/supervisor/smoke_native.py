@@ -165,6 +165,12 @@ def main():
         fields = debug(run, "inspect", dict(target=restored_friend, vars=["builder", "respawn_pending", "respawn_ready_at"]))["vars"]
         assert fields["builder"]["name"] == "Second persistent drone", fields
         assert fields["respawn_pending"], fields
+        # Restoring refreshes every object's appearance; holobarriers must keep their overlay.
+        barriers = debug(run, "find", dict(type="/obj/structure/holosign/barrier", limit=5))["matches"]
+        assert barriers, "the map's holobarriers were not restored"
+        for barrier in barriers:
+            shown = debug(run, "inspect", dict(target=barrier["ref"], vars=["vis_contents"]))["vars"]["vis_contents"]
+            assert shown["length"] >= 1, "restored holobarrier lost its overlay (invisible)"
         papers = debug(run, "find", dict(type="/obj/item/paper/babylon", limit=100))["matches"]
         assert len(papers) == expected_lore, papers
         # Exercise the actual respawn path, not only the replacement initializer.
