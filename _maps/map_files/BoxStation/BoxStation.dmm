@@ -268,7 +268,7 @@
 /area/station/command/heads_quarters/hos)
 "acx" = (
 /obj/structure/window/reinforced/spawner/directional/east,
-/obj/structure/table,
+/obj/structure/chair/stool/directional/west,
 /obj/item/book/manual/wiki/security_space_law,
 /obj/effect/turf_decal/trimline/red/filled/line{
 	dir = 6
@@ -2466,7 +2466,7 @@
 /turf/open/floor/plating,
 /area/station/maintenance/starboard/fore)
 "arx" = (
-/obj/structure/chair/stool/directional/west,
+/obj/structure/table,
 /turf/open/floor/plating,
 /area/station/maintenance/starboard/fore)
 "ary" = (
