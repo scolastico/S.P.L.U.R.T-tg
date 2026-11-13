@@ -36,25 +36,45 @@
 	log_world("Babylon: [key] finished connecting ([mob?.type]).")
 	babylon_watch_game_window()
 
-/// Some first joins stay on DreamSeeker's "Your game will begin shortly" splash although the
-/// world is done: the game window never appears. Watches for it, logs what happens and shows
-/// the window if it is still hidden after 10 seconds.
+/// Some joins stay on DreamSeeker's "Your game will begin shortly" splash although the world
+/// is done: after BYOND's Members-ad countdown, DreamSeeker's handover from the lobby leaves
+/// the game window hidden and the splash open. A second join right after works, so the first
+/// time it happens the player is sent back to the lobby, which joins this world again at once
+/// (babylon_rejoin). If the window is hidden again, it is shown after 10 seconds instead.
 /client/proc/babylon_watch_game_window()
 	set waitfor = FALSE
 	var/started = world.time
-	for(var/attempt in 1 to 30)
-		sleep(2 SECONDS)
+	for(var/attempt in 1 to 60)
+		sleep(1 SECONDS)
 		if(!src)
 			return
 		if(winget(src, "mainwindow", "is-visible") == "true")
-			if(attempt > 1)
+			if(attempt > 2)
 				log_world("Babylon: [key]'s game window appeared after [DisplayTimeText(world.time - started)].")
 			babylon_game_window_shown()
 			return
-		if(attempt == 5)
+		if(attempt == 5 && babylon_rejoin_once())
+			return
+		if(attempt == 10)
 			log_world("Babylon: [key]'s game window is still hidden after 10 seconds; showing it.")
 			winset(src, "mainwindow", "is-visible=true")
 	log_world("Babylon: [key]'s game window never appeared within a minute (mob [mob?.type]).")
+
+/// Sends the client through the lobby back into this world, once per player and 10 minutes.
+/// Returns FALSE when it was tried already (or there is no lobby): then the window is forced.
+/client/proc/babylon_rejoin_once()
+	var/static/list/tried = list()
+	var/lobby = world.params["babylon-lobby"]
+	var/world_id = world.params["babylon-world"]
+	if(!lobby || !world_id || (tried[ckey] && world.time < tried[ckey] + 10 MINUTES))
+		return FALSE
+	tried[ckey] = world.time
+	log_world("Babylon: [key]'s game window is still hidden after 5 seconds; rejoining through the lobby.")
+	var/list/query = list("babylon_rejoin" = world_id)
+	if(babylon_admin_spectator)
+		query["spectate"] = "1"
+	src << link("[lobby]?[list2params(query)]")
+	return TRUE
 
 /// Runs once the game window is visible. Coming from the lobby, the window opens at the skin's
 /// small default size and the viewport was fitted to that: maximized, the chat panel took half

@@ -103,13 +103,21 @@ var/global/list/lobby_config
 	return null
 
 /client/New(TopicData)
+	// A world sends a player back with babylon_rejoin when its game window stayed hidden
+	// (DreamSeeker's start splash bug, see the world's interface.dm): join it again at once.
+	var/list/query = istext(TopicData) ? params2list(TopicData) : list()
 	TopicData = null
 	if(!ckey || findtext(ckey, "guest") == 1 || connection != "seeker")
 		return null
 	. = ..()
+	var/rejoin = query["babylon_rejoin"]
+	var/static/regex/world_id = regex(@"^[0-9a-f]{32}$")
 	spawn(1)
 		if(src)
 			mob:show_browser()
+			if(istext(rejoin) && world_id.Find(rejoin))
+				world.log << "[ckey] returned to rejoin world [rejoin]"
+				mob:run_action(list("action" = "join", "world" = rejoin, "spectate" = query["spectate"] == "1" ? "1" : null))
 
 /mob/lobby
 	var/busy = 0
@@ -295,7 +303,12 @@ var/global/list/lobby_config
 	last_browser_content = content
 
 /mob/lobby/Topic(href, list/params)
-	if(usr != src || !client || busy)
+	if(usr != src)
+		return
+	run_action(params)
+
+/mob/lobby/proc/run_action(list/params)
+	if(!client || busy)
 		return
 	busy = 1
 	request_revision++
