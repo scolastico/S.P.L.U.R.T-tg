@@ -434,19 +434,20 @@ Only then does the lobby stop, so players are connected to the lobby address and
 reconnects to it on its own once the server is back. The whole shutdown has to fit Docker's
 `stop_grace_period`.
 
-## AFK disconnection
+## AFK return to the lobby
 
-Worlds disconnect inactive players after 900 seconds (15 minutes) by default.
+Worlds send inactive players back to the lobby after 900 seconds (15 minutes) by default.
 Set `afk_timeout_seconds` in the supervisor JSON, or
 `BABYLON_AFK_TIMEOUT_SECONDS` in Docker/Compose; `0` disables it. Changes apply
 when a world next starts. Standalone worlds accept the world parameter
 `babylon-afk-timeout=<seconds>` with the same default.
 
-Players receive one chat warning up to 60 seconds before disconnection. Moving
+Players receive one chat warning up to 60 seconds before that. Moving
 or interacting resets BYOND's inactivity counter and cancels the countdown.
 The policy includes ghosts, owners and admins, and replaces SPLURT's separate
 `KICK_INACTIVE` setting in Babylon worlds. Bodies and equipment are preserved;
-players reconnect through the lobby. Once everyone disconnects, the normal
+players join the world again from the lobby (standalone worlds without a
+lobby disconnect them instead). Once everyone has left, the normal
 empty-world grace period triggers saving and shutdown. Lobby menu connections
 are not subject to this world timeout.
 
