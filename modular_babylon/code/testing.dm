@@ -296,20 +296,56 @@ GLOBAL_DATUM_INIT(babylon_debug, /datum/babylon_debug, new)
 	var/datum/babylon_music/music = new
 	music.root = "data/babylon_music_test/"
 	fdel(music.root)
-	for(var/track in list("space/a.ogg", "station/b.mp3", "engineering/engine/c.wav", "loose.ogg", "station/notes.txt"))
+	for(var/track in list("space/a.ogg", "station/b.mp3", "derelict/c.wav", "engine/d.ogg", "loose.ogg", "station/notes.txt"))
 		text2file("", "[music.root][track]")
 	music.scan_folder("", 0)
-	result["folders_scanned"] = length(music.tracks) == 3 && length(music.tracks["station"]) == 1
-	// The wreck has holes; a space tile inside a room rightly counts as space, so use floors.
-	var/turf/engine = locate(/turf/open/floor) in get_area_turfs(/area/ruin/space/bb13/engineering/engine, station_z)
-	var/turf/hallway = locate(/turf/open/floor) in get_area_turfs(/area/ruin/space/bb13/hallway, station_z, TRUE)
+	result["folders_scanned"] = length(music.tracks) == 4 && length(music.tracks["station"]) == 1
 	var/turf/void
 	for(var/turf/open/space/candidate in block(locate(1, 1, station_z), locate(world.maxx, 5, station_z)))
 		void = candidate
 		break
-	result["engine_room_folder"] = music.folder_for(engine) == "engineering/engine"
-	result["hallway_falls_back_to_station"] = music.folder_for(hallway) == "station"
 	result["space_folder"] = !!void && music.folder_for(void) == "space"
+	// A floor away from the wreck's own generators; its air decides derelict or station.
+	music.engine_radius = 3
+	var/turf/open/floor/floor
+	for(var/turf/open/floor/candidate in get_area_turfs(/area/ruin/space/bb13/hallway, station_z, TRUE))
+		if(!music.near_engine(candidate))
+			floor = candidate
+			break
+	result["floor_found"] = !!floor
+	if(floor)
+		var/datum/gas_mixture/air = floor.return_air()
+		var/datum/gas_mixture/original = air.copy()
+		air.remove_ratio(1)
+		result["airless_room_is_derelict"] = music.folder_for(floor) == "derelict"
+		air.copy_from(SSair.parse_gas_string(OPENTURF_DEFAULT_ATMOS))
+		result["room_with_air_is_station"] = music.folder_for(floor) == "station"
+		// Any generator, wherever it was built, plays engine music; packed in a crate it does not.
+		var/obj/machinery/power/rtg/generator = new(floor)
+		result["generator_plays_engine"] = music.folder_for(floor) == "engine"
+		var/obj/machinery/power/solar/panel = new(floor)
+		generator.forceMove(new /obj/structure/closet/crate(floor))
+		result["crated_generator_and_solar_do_not"] = music.folder_for(floor) == "station"
+		var/obj/structure/closet/crate/crate = generator.loc
+		qdel(generator)
+		qdel(crate)
+		qdel(panel)
+		music.tracks -= "derelict"
+		air.remove_ratio(1)
+		result["empty_derelict_falls_back_to_station"] = music.folder_for(floor) == "station"
+		air.copy_from(original)
+	// A short trip keeps the playing track; staying for the debounce time switches.
+	music.debounce = 20 SECONDS
+	var/list/pending = list(null, 0)
+	var/list/steps = list(
+		music.debounced(null, "station", pending, 0) == "station",
+		music.debounced("station", "space", pending, 10) == "station",
+		music.debounced("station", "station", pending, 20) == "station",
+		music.debounced("station", "space", pending, 30) == "station",
+		music.debounced("station", "space", pending, 30 + 19 SECONDS) == "station",
+		music.debounced("station", "space", pending, 30 + 20 SECONDS) == "space",
+	)
+	result["debounce_keeps_then_switches"] = !(FALSE in steps)
 	result["title_from_file_name"] = babylon_music_title("/music/space/Deep_Space Drift.v2.ogg") == "Deep Space Drift.v2"
 	fdel(music.root)
 	return result

@@ -1,36 +1,55 @@
 /*
  * Optional server-side music. The operator puts tracks into a folder on the server (a Docker
  * volume, BABYLON_MUSIC_DIRECTORY, default /music), never into the repository, so licensed
- * music stays server specific. Subfolders choose where a track plays:
+ * music stays server specific. Subfolders choose the mood a track plays in; players rebuild
+ * the station as they like, so the mood follows what is around them, not the room's name:
  *
- *   space/                 outside the station
- *   station/               anywhere inside without a more specific folder
- *   engineering/           an area of the station's tree (/area/ruin/space/bb13/...),
- *   engineering/engine/    the most specific folder with tracks wins
+ *   space/      outside the hull
+ *   engine/     within BABYLON_MUSIC_ENGINE_RADIUS tiles (default 10, 0 = off) of a power
+ *               generator, wherever it was built; solar panels do not count
+ *   derelict/   inside, where the air is too thin to breathe (not pressurized yet)
+ *   station/    inside, with air
  *
- * Tracks (.ogg, .mp3, .wav) play one after another, with a pause between them, at the player's
- * "Server music volume" (its own preference, toggled from the OOC tab). A new place takes over
- * once the player has stayed there a few seconds, so walking through a door does not cut the
- * music. The status tab names the playing track with a [?] that explains, in chat, why players
- * who record should mute it: each server picks its own tracks, under licenses that need not
- * cover recordings. Without the folder, nothing changes.
+ * An empty engine/ or derelict/ falls back to the derelict/station music. Tracks (.ogg, .mp3,
+ * .wav) play one after another, with a pause between them, at the player's "Server music
+ * volume" (its own preference, toggled from the OOC tab). A new mood takes over only once the
+ * player has stayed in it for BABYLON_MUSIC_DEBOUNCE_SECONDS (default 20), so a quick trip
+ * outside does not cut the track. The status tab names the playing track with a [?] that
+ * explains, in chat, why players who record should mute it: each server picks its own tracks,
+ * under licenses that need not cover recordings. Without the folder, nothing changes.
  */
 
 #define BABYLON_MUSIC_GAP (30 SECONDS)
-#define BABYLON_MUSIC_SETTLE (5 SECONDS)
-#define BABYLON_MUSIC_AREA_ROOT "/area/ruin/space/bb13/"
 
 GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 
 /datum/babylon_music
 	/// The music folder with a trailing slash, or null without music.
 	var/root
-	/// Folder ("space", "station", "engineering/engine" ...) -> list of track paths.
+	/// Folder ("space", "engine", "derelict", "station") -> list of track paths.
 	var/list/tracks = list()
 	var/scanned = FALSE
+	/// Tiles around a power generator that play engine/ music; 0 turns it off.
+	var/engine_radius = 10
+	/// How long a player stays in a new mood before its music takes over.
+	var/debounce = 20 SECONDS
+	/// Machines that generate power. Solar panels (and storage such as SMES) are left out.
+	var/static/list/engine_types = list(
+		/obj/machinery/power/supermatter_crystal,
+		/obj/machinery/power/energy_accumulator,
+		/obj/machinery/power/port_gen,
+		/obj/machinery/power/thermoelectric_generator,
+		/obj/machinery/power/rtg,
+		/obj/machinery/power/turbine/core_rotor,
+		/obj/machinery/power/rbmk2,
+		/obj/machinery/power/stirling_generator,
+		/obj/machinery/power/colony_wind_turbine,
+	)
 
 /datum/babylon_music/proc/scan()
 	scanned = TRUE
+	engine_radius = babylon_music_setting("BABYLON_MUSIC_ENGINE_RADIUS", engine_radius)
+	debounce = babylon_music_setting("BABYLON_MUSIC_DEBOUNCE_SECONDS", debounce / (1 SECONDS)) * (1 SECONDS)
 	root = world.params["babylon-music"]
 	if(!istext(root) || !length(root))
 		root = null
@@ -41,7 +60,14 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 	var/count = 0
 	for(var/folder in tracks)
 		count += length(tracks[folder])
-	log_world("Babylon music: [count] track(s) in [length(tracks)] folder(s) under [root].")
+		if(!(folder in list("space", "engine", "derelict", "station")))
+			log_world("Babylon music: [root][folder]/ is not a mood folder (space, engine, derelict, station); its tracks never play.")
+	log_world("Babylon music: [count] track(s) in [length(tracks)] folder(s) under [root]; engine radius [engine_radius], debounce [debounce / (1 SECONDS)] s.")
+
+/// A whole number from the environment, at least 0, or the fallback.
+/proc/babylon_music_setting(name, fallback)
+	var/value = text2num(world.GetConfig("env", name))
+	return isnum(value) && value >= 0 ? round(value) : fallback
 
 /datum/babylon_music/proc/scan_folder(relative, depth)
 	if(depth > 6)
@@ -65,19 +91,38 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 	var/turf/place = get_turf(listener)
 	if(!place)
 		return null
-	var/area/room = get_area(place)
-	if(isspaceturf(place) || istype(room, /area/space))
+	if(isspaceturf(place) || istype(get_area(place), /area/space))
 		return tracks["space"] ? "space" : null
-	var/path = "[room.type]"
-	if(findtext(path, BABYLON_MUSIC_AREA_ROOT) == 1)
-		// engineering/engine, then engineering, then station.
-		var/list/parts = splittext(copytext(path, length(BABYLON_MUSIC_AREA_ROOT) + 1), "/")
-		while(length(parts))
-			var/folder = jointext(parts, "/")
-			if(tracks[folder])
-				return folder
-			parts.len--
+	if(tracks["engine"] && near_engine(place))
+		return "engine"
+	if(tracks["derelict"])
+		var/datum/gas_mixture/air = place.return_air()
+		if(!air || air.return_pressure() < WARNING_LOW_PRESSURE)
+			return "derelict"
 	return tracks["station"] ? "station" : null
+
+/**
+ * The folder to play now: `playing` until the player has stayed in the mood `folder` for the
+ * debounce time, so a short trip elsewhere keeps the track. With nothing playing, a mood starts
+ * at once. `pending` is list(folder, since), the mood the player is in; updated in place.
+ */
+/datum/babylon_music/proc/debounced(playing, folder, list/pending, now)
+	if(folder != pending[1])
+		pending[1] = folder
+		pending[2] = now
+	if(folder == playing || !playing)
+		return folder
+	return now >= pending[2] + debounce ? folder : playing
+
+/// Whether a power generator stands (not packed in a crate) within engine_radius of the place.
+/datum/babylon_music/proc/near_engine(turf/place)
+	if(engine_radius <= 0)
+		return FALSE
+	for(var/engine_type in engine_types)
+		for(var/obj/machinery/engine as anything in SSmachines.get_machines_by_type_and_subtypes(engine_type))
+			if(engine.z == place.z && isturf(engine.loc) && get_dist(engine, place) <= engine_radius)
+				return TRUE
+	return FALSE
 
 /client
 	/// The music folder now playing for this client, its last track and when the next may start.
@@ -88,9 +133,8 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 	var/babylon_music_playing_until = 0
 	/// The volume "Toggle Server Music" restores, remembered when it mutes.
 	var/babylon_music_unmuted_volume
-	/// A place the player moved to, and since when, before its music takes over.
-	var/babylon_music_pending
-	var/babylon_music_pending_since = 0
+	/// The mood the player is in and since when: list(folder, world.time), see debounced().
+	var/list/babylon_music_pending = list(null, 0)
 
 /client/proc/babylon_music_volume()
 	return prefs ? prefs.read_preference(/datum/preference/numeric/volume/babylon_server_music) : 0
@@ -113,19 +157,13 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 		if(babylon_music_folder)
 			babylon_stop_music()
 		return
-	var/folder = music.folder_for(mob)
+	var/folder = music.debounced(babylon_music_folder, music.folder_for(mob), babylon_music_pending, world.time)
 	if(folder != babylon_music_folder)
-		if(folder != babylon_music_pending)
-			babylon_music_pending = folder
-			babylon_music_pending_since = world.time
-			return
-		if(world.time < babylon_music_pending_since + BABYLON_MUSIC_SETTLE)
-			return
 		if(!folder)
 			babylon_stop_music()
 			return
 		babylon_music_folder = folder
-		babylon_music_next = 0 // The new place's music starts now.
+		babylon_music_next = 0 // The new mood's music starts now.
 	if(!folder || world.time < babylon_music_next)
 		return
 	var/list/choices = music.tracks[folder].Copy()
@@ -207,5 +245,3 @@ GLOBAL_DATUM_INIT(babylon_music, /datum/babylon_music, new)
 	to_chat(src, fieldset_block("Server music", span_infoplain(jointext(lines, "<br>")), "boxed_message"), type = MESSAGE_TYPE_INFO)
 
 #undef BABYLON_MUSIC_GAP
-#undef BABYLON_MUSIC_SETTLE
-#undef BABYLON_MUSIC_AREA_ROOT

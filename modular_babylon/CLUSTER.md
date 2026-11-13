@@ -373,23 +373,34 @@ toward the world capacity and online population and follow its AFK timeout.
 Worlds can play music that lives only on the server, never in this repository, so
 licensed tracks (for example from a music subscription) stay server specific. Put
 tracks into the `babylon-music` volume (mounted read only at `/music`; another path
-with `BABYLON_MUSIC_DIRECTORY`). The folder a track is in decides where it plays:
+with `BABYLON_MUSIC_DIRECTORY`). The folder a track is in decides the mood it plays in.
+Players rebuild the station as they like (a reactor may stand in the old chapel), so the
+mood follows what is around the player, not the room's original name:
 
 ```
-/music/space/                  outside the station
-/music/station/                inside, wherever no more specific folder has tracks
-/music/engineering/            a department of the station's area tree
-/music/engineering/engine/     a single area; the most specific folder with tracks wins
+/music/space/      outside the hull
+/music/engine/     near a power generator, wherever it was built
+/music/derelict/   inside, where the air is too thin to breathe (below 50 kPa)
+/music/station/    inside, with air
 ```
 
-Folder names follow the station's areas below `/area/ruin/space/bb13/`: `bridge`,
-`engineering` (`atmos`, `engine`, `vault` ...), `hallway`, `medical` (`genetics`),
-`research` (`toxins`), `security` and `service` (`botany`, `chapel`, `kitchen`).
-Files directly in `/music` are ignored. Formats: `.ogg`, `.mp3` and `.wav`.
+The checks run in that order. Generators are supermatter crystals, tesla coils and
+grounding rods, portable generators (P.A.C.M.A.N. ...), thermoelectric generators, RTGs,
+turbines, RBMK reactors, stirling generators and wind turbines; solar panels and power
+storage do not count, nor generators packed in a crate. An empty `engine/` or `derelict/`
+falls back to the derelict or station music; an empty `space/` or `station/` is silent
+there. Other folders and files directly in `/music` are ignored (a world logs folders it
+does not know). Formats: `.ogg`, `.mp3` and `.wav`.
 
-Tracks play one after another in random order with a 30-second pause; a new place's
-music takes over after the player stays there 5 seconds, so walking through a door does
-not cut it. Players set the volume (or turn it off with 0) with **Server music volume**
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `BABYLON_MUSIC_ENGINE_RADIUS` | `10` | tiles around a generator that play `engine/` music (10 = a 21×21 square); `0` turns it off |
+| `BABYLON_MUSIC_DEBOUNCE_SECONDS` | `20` | how long a player stays in a new mood before its music takes over |
+
+Tracks play one after another in random order with a 30-second pause. A new mood's music
+takes over only after the player has stayed in it for the debounce time, so a short trip
+outside or past a generator keeps the current track; with nothing playing it starts at
+once. Players set the volume (or turn it off with 0) with **Server music volume**
 in the game preferences, or mute and unmute it with **Toggle Server Music** in the OOC
 tab. While a track plays, the status tab shows its file name (without the extension,
 underscores as spaces), so name files the way players should see them. Its **[?]**
