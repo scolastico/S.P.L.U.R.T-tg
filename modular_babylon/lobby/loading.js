@@ -3,6 +3,23 @@ var lobbyView = '';
 var lobbyScroll = {};
 var lobbyPending = false;
 var lobbyRevision = -1;
+// The lobby sends lobbyAlive every 5 seconds. When it stops, the server is gone (usually a
+// restart): links would do nothing, so the page shows the reconnect screen instead.
+var lobbyLastAlive = new Date().getTime();
+var lobbyLost = false;
+
+function lobbyAlive() {
+  lobbyLastAlive = new Date().getTime();
+}
+
+setInterval(function () {
+  if (lobbyLost || new Date().getTime() - lobbyLastAlive < 15000) return;
+  lobbyLost = true;
+  document.getElementById('browser-content').style.display = 'none';
+  document.getElementById('action-loading').style.display = 'none';
+  document.getElementById('connection-lost').style.display = 'block';
+  window.scrollTo(0, 0);
+}, 2000);
 
 function rememberLobbyScroll() {
   if (lobbyView && !lobbyPending) {
@@ -21,7 +38,7 @@ function showLobbyLoading(name, stage) {
 }
 
 function beginAction(link) {
-  if (lobbyPending) return false;
+  if (lobbyPending || lobbyLost) return false;
   showLobbyLoading(link.getAttribute('data-world') || 'Babylon 13',
     link.getAttribute('data-stage') || 'Preparing your request...');
   return true;
@@ -29,6 +46,7 @@ function beginAction(link) {
 
 function renderLobby(encoded) {
   var data = JSON.parse(encoded);
+  if (lobbyLost) return;
   if (data.revision < lobbyRevision || (lobbyPending && !data.complete)) return;
   rememberLobbyScroll();
   lobbyRevision = data.revision;

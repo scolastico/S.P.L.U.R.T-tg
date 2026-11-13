@@ -50,12 +50,12 @@ def restart_countdown(service, seconds, sleep=time.sleep):
         sleep(remaining - mark)
         remaining = mark
         message = ('The server restarts in %d seconds. Your world is saved first, then you return to the '
-                   'lobby and reconnect automatically once the server is back.' % mark)
+                   'lobby, where Reconnect brings you back once the server is up again.' % mark)
         service.server_notice = message
         log('Restart countdown: %d seconds' % mark)
         service.announce(message)
     sleep(remaining)
-    service.server_notice = 'The server is restarting now. You reconnect automatically once it is back.'
+    service.server_notice = 'The server is restarting now. Press Reconnect once it is back.'
 
 
 def main():
@@ -102,8 +102,8 @@ def main():
                 bot = None
             lobby_running = menu.poll() is None
             if not handed_over:
-                # The lobby stays up until the worlds have sent their players to it: clients
-                # connected to the lobby reconnect to it on their own once the server is back.
+                # The lobby stays up until the worlds have sent their players to it: its restart
+                # screen offers Reconnect for when the server is back.
                 handed_over = True
                 restart_countdown(service, limits['restart_warning_seconds'] if lobby_running and not exit_code else 0)
             players = service.players_in_worlds()

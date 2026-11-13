@@ -145,6 +145,8 @@ var/global/list/lobby_config
 	world.log << "[ckey] connected to the lobby"
 	spawn(50)
 		while(client && generation == poll_generation)
+			// The page shows the restart screen when these stop: the server went away.
+			src << output(null, "mainwindow.browser:lobbyAlive")
 			if(!busy)
 				// A runtime error must not stop this player's lobby from refreshing.
 				try
@@ -165,7 +167,7 @@ var/global/list/lobby_config
 	var/list/response = world.Export("[lobby_config["api"]]/api?[list2params(query)]")
 	if(!response || !response["CONTENT"])
 		world.log << "Supervisor unavailable for [ckey] ([action])"
-		return list("error" = "Supervisor unavailable. Please try again shortly.")
+		return list("error" = "Supervisor unavailable. Please try again shortly.", "unavailable" = TRUE)
 	var/list/result
 	try
 		result = json_decode(file2text(response["CONTENT"]))
@@ -183,6 +185,11 @@ var/global/list/lobby_config
 /mob/lobby/proc/loading_panel(world_name, stage)
 	return "<div class='loading-shell'><section class='loading' role='status' aria-live='polite' aria-busy='true'><div class='spinner'></div><div class='brand'>BABYLON // WORLD MANAGEMENT</div><h1 id='loading-world'>[html_encode(world_name)]</h1><p id='loading-stage'>[html_encode(stage)]</p><small>Keep this client open while your request completes.</small></section></div>"
 
+/// Shown instead of the world list while the server restarts (or its supervisor is
+/// unreachable). loading.js shows the same screen when the lobby connection itself is gone.
+/proc/lobby_restart_panel(title, message)
+	return "<div class='loading-shell'><section class='loading' role='status' aria-live='polite'><div class='spinner'></div><div class='brand'>BABYLON 13</div><h1>[html_encode(title)]</h1><p>[html_encode(message)]</p><p class='muted'>Every world is saved before the server goes down, and nothing is lost. A restart usually takes a minute or two. Once the server is back, press Reconnect.</p><a class='button primary' href='byond://winset?command=.reconnect'>Reconnect</a></section></div>"
+
 /mob/lobby/proc/show_loading(world_name, stage)
 	if(client)
 		src << output(list2params(list(world_name, stage)), "mainwindow.browser:showLobbyLoading")
@@ -199,7 +206,15 @@ var/global/list/lobby_config
 	// An old poll must not overwrite a click, even if its action has finished.
 	if(!client || busy || revision != request_revision)
 		return
-	var/content = "<div class='brand'>BABYLON 13</div><div class='top'><h1>Your station, your next chapter.</h1><a class='button primary' data-stage='Waiting for world settings...' onclick='return beginAction(this)' href='?src=\ref[src];action=create'>+ New game</a></div><nav class='tabs' aria-label='World categories'>"
+	var/content
+	if(result["restarting"])
+		content = lobby_restart_panel("The server is restarting", result["server_notice"] || "The server is restarting.")
+	else if(result["unavailable"])
+		content = lobby_restart_panel("The server is unavailable", "The lobby cannot reach its world manager right now, usually because the server is restarting.")
+	if(content)
+		render_page(content, revision, complete)
+		return
+	content = "<div class='brand'>BABYLON 13</div><div class='top'><h1>Your station, your next chapter.</h1><a class='button primary' data-stage='Waiting for world settings...' onclick='return beginAction(this)' href='?src=\ref[src];action=create'>+ New game</a></div><nav class='tabs' aria-label='World categories'>"
 	var/list/tabs = list("active" = "Active worlds", "mine" = "My worlds", "shared" = "Shared with me", "all" = "Browse worlds")
 	for(var/tab in tabs)
 		var/selected = view_filter == tab
@@ -266,10 +281,13 @@ var/global/list/lobby_config
 		var/expiry = result["delete_unused_worlds_after_days"]
 		var/expiry_text = expiry ? "Unused stopped worlds are deleted after [lobby_number(expiry)] days." : "Automatic world expiry is disabled."
 		content += "<footer class='footer'>Server limits: [lobby_number(limits["max_running_worlds"])] running worlds; [lobby_number(limits["max_players_per_world"])] players per world; [lobby_number(limits["max_worlds_per_player"])] worlds and [lobby_number(limits["max_running_worlds_per_player"])] running worlds per owner.<br>Private worlds require membership. Your station continues from its last successful checkpoint.<br>[expiry_text]</footer>"
+	render_page(content, revision, complete)
+
+/mob/lobby/proc/render_page(content, revision, complete)
 	if(!browser_initialized)
 		// json_encode leaves "</script>" as is; inside the inline script it would end the script.
 		var/initial = replacetext(json_encode(json_encode(list("html" = content, "view" = view_filter, "revision" = revision, "complete" = 1))), "</", "<\\/")
-		var/shell = "[page_start()]<main id='browser-content'></main><div id='action-loading' style='display:none'>[loading_panel("Your world", "Working...")]</div><script>renderLobby([initial]);</script></body></html>"
+		var/shell = "[page_start()]<main id='browser-content'></main><div id='action-loading' style='display:none'>[loading_panel("Your world", "Working...")]</div><div id='connection-lost' style='display:none'>[lobby_restart_panel("Connection lost", "The connection to the server was lost, most likely because it is restarting.")]</div><script>renderLobby([initial]);</script></body></html>"
 		src << browse(shell, "window=mainwindow.browser")
 		browser_initialized = 1
 	else if(complete || content != last_browser_content)

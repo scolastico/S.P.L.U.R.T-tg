@@ -80,6 +80,11 @@ class Policies(unittest.TestCase):
     def test_private_members_and_admin(self):
         w = self.s.dispatch("owner", "create", {"name": "Private", "visibility": "private"})["id"]
         self.assertEqual(self.s.dispatch("stranger", "list", {})["worlds"], [])
+        # The lobby swaps the world list for its restart screen while the server restarts.
+        self.assertFalse(self.s.dispatch("stranger", "list", {})["restarting"])
+        self.s.shutting_down = True
+        self.assertTrue(self.s.dispatch("stranger", "list", {})["restarting"])
+        self.s.shutting_down = False
         with self.assertRaises(Denied):
             self.s.dispatch("stranger", "join", {"world": w})
         self.s.dispatch("owner", "member", {"world": w, "member": "friend"})

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const elements = {};
-for (const id of ['browser-content', 'action-loading', 'loading-world', 'loading-stage']) {
+for (const id of ['browser-content', 'action-loading', 'loading-world', 'loading-stage', 'connection-lost']) {
   elements[id] = { style: {}, textContent: '', innerHTML: '' };
 }
 let paints = 0;
@@ -13,7 +13,12 @@ Object.defineProperty(elements['browser-content'], 'innerHTML', {
   set(value) { this.html = value; paints++; },
 });
 const callbacks = [];
+const intervals = [];
+let now = 1000000;
+class FakeDate { getTime() { return now; } }
 const context = {
+  Date: FakeDate,
+  setInterval(fn) { intervals.push(fn); },
   document: { documentElement: { scrollTop: 0 }, getElementById: id => elements[id] },
   window: { pageYOffset: 0, scrollTo(x, y) { this.pageYOffset = y; } },
   setTimeout(fn) { callbacks.push(fn); },
@@ -67,4 +72,23 @@ click();
 render('my list', 'mine', 5, true); // cancelling a native dialog
 assert.equal(elements['action-loading'].style.display, 'none');
 assert.equal(context.window.pageYOffset, 420);
-console.log('Lobby loading, cancellation, stale-poll and scroll checks passed.');
+
+// Heartbeats keep the page; when they stop, the reconnect screen replaces it for good.
+const tick = () => intervals.forEach(fn => fn());
+now += 12000;
+tick();
+assert.notEqual(elements['connection-lost'].style.display, 'block', 'a short gap is not a lost connection');
+context.lobbyAlive();
+now += 14000;
+tick();
+assert.notEqual(elements['connection-lost'].style.display, 'block', 'heartbeats keep the lobby');
+click('Loading worlds...');
+now += 16000;
+tick();
+assert.equal(elements['connection-lost'].style.display, 'block', 'silence shows the reconnect screen');
+assert.equal(elements['action-loading'].style.display, 'none', 'a pending action no longer spins forever');
+assert.equal(elements['browser-content'].style.display, 'none');
+assert.equal(click(), false, 'links do nothing once the connection is lost');
+render('late list', 'mine', 9, true);
+assert.equal(elements['browser-content'].style.display, 'none', 'nothing replaces the reconnect screen');
+console.log('Lobby loading, cancellation, stale-poll, scroll and lost-connection checks passed.');

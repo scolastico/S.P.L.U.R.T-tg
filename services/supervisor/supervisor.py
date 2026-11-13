@@ -639,7 +639,7 @@ class Supervisor:
                                       error=run["error"] if run else None,
                                       last_active=time.strftime("%Y-%m-%d %H:%M", time.localtime(world["last_used"])))
                 return {"ok": True, "worlds": worlds, "admin": actor in self.admins, "server_notice": self.server_notice,
-                        "discord": self.discord_state(actor),
+                        "restarting": self.shutting_down, "discord": self.discord_state(actor),
                         "delete_unused_worlds_after_days": self.config.get("delete_unused_worlds_after_days", 60),
                         "limits": {k: v for k, v in self.config.items() if k.startswith("max_")}}
             if action in ("create", "join") and self.shutting_down:
