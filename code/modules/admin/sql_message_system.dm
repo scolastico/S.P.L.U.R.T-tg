@@ -650,6 +650,10 @@
 	var/editor_key
 
 /proc/get_message_output(type, target_ckey, show_secret = TRUE, after_timestamp)
+#ifdef BABYLON_BUILDER // BABYLON13: no database; every login read messages and told the player it failed.
+	if(!CONFIG_GET(flag/sql_enabled))
+		return
+#endif
 	if(!SSdbcore.Connect())
 		to_chat(usr, span_danger("Failed to establish database connection."), confidential = TRUE)
 		return

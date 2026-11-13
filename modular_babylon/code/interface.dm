@@ -181,3 +181,10 @@
 	else
 		msg += "No commit information (a local build)."
 	to_chat(src, fieldset_block("Server Revision Info", span_infoplain(jointext(msg, "<br>")), "boxed_message"), type = MESSAGE_TYPE_INFO)
+
+/// Babylon has no database. Without one every query fails, and warn_execute() told the player
+/// "A SQL error occurred" for queries like the last-seen lookup run at every login.
+/datum/db_query/warn_execute(async = TRUE)
+	if(CONFIG_GET(flag/sql_enabled))
+		return ..()
+	return Execute(async, log_error = FALSE)

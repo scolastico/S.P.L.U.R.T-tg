@@ -1,7 +1,7 @@
 # Upstream integration hooks
 
 Babylon is opt-in: compile `babylon.dme`. The upstream `tgstation.dme` is
-unchanged. The fourteen modified upstream DM files use hooks guarded by
+unchanged. The fifteen modified upstream DM files use hooks guarded by
 `BABYLON_BUILDER` and marked `BABYLON13`. Ordinary SPLURT builds compile
 those blocks out.
 
@@ -68,6 +68,7 @@ upstream merge, check new player verbs and the `infobuttons` controls.
 | `tgui/packages/tgui-panel/settings/atoms.ts`, `migration.ts` | Default the chat panel (and with it the window) to the dark theme, and apply the default theme on a player's first start. Players' saved choices are kept. |
 | `tgui/packages/tgui/interfaces/Techweb/Content.tsx`, `nodes/TechNode.tsx`, `types.ts` | When the server sends `babylon_research`, show the node being researched instead of point balances and the queue, a Research / Researching button instead of research and queue buttons, and progress only on that node. Without it, the upstream screens are unchanged. |
 | `tgui/packages/tgui-escape-menu/EscapeMenu.tsx`, `pages/PlayersPage.tsx` | When the server sends `babylon`, hide the Round ID line and the "No Admins Online!" heading. Unchanged otherwise. |
+| `code/modules/admin/sql_message_system.dm` | Without a database (`SQL_ENABLED` off), `get_message_output` returns quietly instead of telling every player at login that the database connection failed. |
 | `tgui/packages/tgui/interfaces/VaultController.tsx` | Render the Babylon generation interlock (live generation, ignored battery output, hold timer) when the controller sends those fields; the upstream charge view is unchanged otherwise. Rebuild the TGUI bundle after editing. |
 
 Keep these patches small. Do not copy complete upstream files from the local
