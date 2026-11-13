@@ -49,11 +49,31 @@
 		if(winget(src, "mainwindow", "is-visible") == "true")
 			if(attempt > 1)
 				log_world("Babylon: [key]'s game window appeared after [DisplayTimeText(world.time - started)].")
+			babylon_game_window_shown()
 			return
 		if(attempt == 5)
 			log_world("Babylon: [key]'s game window is still hidden after 10 seconds; showing it.")
 			winset(src, "mainwindow", "is-visible=true")
 	log_world("Babylon: [key]'s game window never appeared within a minute (mob [mob?.type]).")
+
+/// Runs once the game window is visible. Coming from the lobby, the window opens at the skin's
+/// small default size and the viewport was fitted to that: maximized, the chat panel took half
+/// the screen and the map sat between black bars. Maximizes the window (not fullscreen) and
+/// fits the viewport again whenever the window's size changes. Window writes wait until the
+/// window is shown, so they cannot interfere with DreamSeeker's start splash.
+/client/proc/babylon_game_window_shown()
+	var/list/settings = list("on-size=babylon-window-resized")
+	if(!prefs?.read_preference(/datum/preference/toggle/fullscreen_mode))
+		settings += "is-maximized=true"
+	winset(src, "mainwindow", jointext(settings, ";"))
+	babylon_window_resized()
+
+/// The game window's on-size command. Resizing sends it many times; the viewport is fitted
+/// once the size has settled (and only for players with auto-fit enabled, upstream's default).
+/client/verb/babylon_window_resized()
+	set name = "babylon-window-resized"
+	set hidden = TRUE
+	addtimer(CALLBACK(src, PROC_REF(attempt_auto_fit_viewport)), 0.5 SECONDS, TIMER_UNIQUE | TIMER_OVERRIDE | TIMER_CLIENT_TIME)
 
 /// The top bar keeps Menu, Settings, Fullscreen and Reconnect in upstream's own button slots:
 /// Settings moves into Character's slot and Fullscreen into Settings', Reconnect stays at the

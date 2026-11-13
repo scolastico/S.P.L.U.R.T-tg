@@ -14,6 +14,7 @@
 		/mob/dead/observer/verb/toggle_ghostsee, /mob/dead/observer/verb/toggle_darkness,
 		// Client upkeep: without these a broken chat could not be repaired.
 		/client/verb/fix_tgui_panel, /client/verb/refresh_tgui, /client/verb/fit_viewport, /client/verb/toggle_fullscreen,
+		/client/verb/babylon_window_resized,
 	)
 	return verb_path in allowed
 
