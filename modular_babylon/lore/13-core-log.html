@@ -1,0 +1,49 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><base href="../../"><link rel="stylesheet" href="dmdoc.css"><title>modular_babylon/lore/13-core-log.md - /tg/ Station 13</title></head><body><header><a href="index.html">/tg/ Station 13</a> - <a href="index.html#modules">Modules</a> - <a href="index.html#types">Types</a></header><main><h1>continuity watchdog core log (TEMPLATE, printed from world state) <aside>modular_babylon/lore/13-core-log.md</aside> <a href="https://github.com/scolastico/babylon13/blob/79353a5a966a5f2ebe4ab9910e2921501b13cb1c/modular_babylon/lore/13-core-log.md"><img src="git.png" width="16" height="16" title="modular_babylon/lore/13-core-log.md"></a></h1><table class="summary" cellspacing="0"><tr><td colspan="2"><ul>
+<li>type: /obj/item/paper/babylon/core_log</li>
+<li>tier: 3 (watchdog chamber, behind the human-only door)</li>
+<li>placement: printed by the server when the inner door first opens; the server reprints on request</li>
+<li>stamps: none</li>
+<li>notes: machine-printed; monospace. Fields in {braces} are filled by code from the world's persistence state. Tick counts, not clock times, because the clock was lost with the bus.</li>
+</ul>
+<hr />
+<h3 id="continuity-watchdog-core-log-this-world">CONTINUITY WATCHDOG // core log, this world</h3>
+<pre><code>RULESET v4 (M.VALE / I.) ----------------------------
+ R1  listen: crew heartbeat
+ R2  heartbeat absent  -&gt; hold all shells below reserve
+ R3  reserve reached   -&gt; wake shells, one at a time
+ R4  chassis lost      -&gt; re-seat the self, whole, next shell
+ R5  re-seat re-samples the inherited part (drift)
+ R6  self in a pulsed housing -&gt; counts as heartbeat
+ R7  pulsed housing stops     -&gt; treat as chassis lost (R4)
+ R8  archive unseal     -&gt; pulse at inner console; stays open
+ R9  recall dependency  -&gt; REMOVED (M.V.)
+ R10 bus                -&gt; DISCONNECTED (I.)
+------------------------------------------------------
+t+0        bus lost. clock lost. counting from here.
+t+0        heartbeat: 2 ... 0. holding.
+t+?        cell below reserve. holding.
+  (identical entries omitted)
+t+?        cell crossed reserve. waking.
+
+selves seated in this world: {woken}
+re-seats to date:            {reseats}
+drift, mean:                 {drift}%
+
+recent:
+{events}
+
+t+{outer}  generation on vault bus &gt;= threshold. outer lock released.
+t+{inner}  pulse at inner console ({opener}). archive unseal -&gt; GRANTED.
+           heartbeats: {heartbeats}
+</code></pre>
+<blockquote>
+<p>Handwritten across the bottom of the strip, two hands:
+<em>R6 and R7 are the whole point. - M.</em>
+<em>R10 is the whole point. - I.</em></p>
+</blockquote>
+<hr />
+<p><em>Example of <code>{events}</code> lines the server prints, newest last:</em></p>
+<pre><code>t+41190   D-03 chassis lost (depressurisation). re-seat -&gt; D-04. drift 0.4%
+t+52877   D-07 chassis lost (crush). re-seat -&gt; D-09. drift 0.4%
+</code></pre>
+<p><em>If <code>{outer}</code> or <code>{inner}</code> has not happened yet the line is printed as <code>pending</code>. If nobody has died, the recent block prints <code>none. keep it that way.</code></em></p></td></tr></table></main><footer>babylon.dme <a href="https://github.com/scolastico/babylon13/tree/79353a5a966a5f2ebe4ab9910e2921501b13cb1c">79353a5</a> (master) — <a href="https://github.com/SpaceManiac/SpacemanDMM/blob/master/crates/dmdoc/README.md">dmdoc 1.11.0</a></footer></body></html>

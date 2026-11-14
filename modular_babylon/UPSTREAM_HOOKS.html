@@ -1,0 +1,98 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><base href="../"><link rel="stylesheet" href="dmdoc.css"><title>modular_babylon/UPSTREAM_HOOKS.md - /tg/ Station 13</title></head><body><header><a href="index.html">/tg/ Station 13</a> - <a href="index.html#modules">Modules</a> - <a href="index.html#types">Types</a></header><main><h1>Upstream integration hooks <aside>modular_babylon/UPSTREAM_HOOKS.md</aside> <a href="https://github.com/scolastico/babylon13/blob/79353a5a966a5f2ebe4ab9910e2921501b13cb1c/modular_babylon/UPSTREAM_HOOKS.md"><img src="git.png" width="16" height="16" title="modular_babylon/UPSTREAM_HOOKS.md"></a></h1><table class="summary" cellspacing="0"><tr><td colspan="2"><p>Babylon is opt-in: compile <code>babylon.dme</code>. The upstream <code>tgstation.dme</code> is
+unchanged. The fifteen modified upstream DM files use hooks guarded by
+<code>BABYLON_BUILDER</code> and marked <code>BABYLON13</code>. Ordinary SPLURT builds compile
+those blocks out.</p>
+<p>The wrapper also defines upstream's <code>ABSOLUTE_MINIMUM</code> flag to skip the
+separate Interlink/cafe map loader. Builder behavior, restricted observer
+interfaces and lore papers live under <code>modular_babylon</code>; lore placements are
+applied to the fresh upstream map at preparation time, without a copied map.</p>
+<p>Babylon is safe for work. <code>modular_babylon/code/sfw.dm</code> disables inherited
+ERP content through proc and var overrides only (no upstream edits): it locks
+<code>DISABLE_ERP_PREFERENCES</code>/<code>DISABLE_LEWD_ITEMS</code> on, filters lewd interactions,
+emotes, research designs and chemistry, removes the Plug13 verb, and opens the
+new Babylon-only <code>tgui/packages/tgui/interfaces/BabylonInteraction.tsx</code>
+instead of SPLURT's <code>MobInteraction</code> window. After an upstream merge, re-check
+newly added lewd interactions, designs, reactions and verbs against it.</p>
+<p>Babylon has no storyteller yet. <code>modular_babylon/code/storyteller.dm</code> runs an
+inert <code>/datum/storyteller/babylon</code> in every world (no events, no antagonists),
+refuses the storyteller vote and any other storyteller, and keeps tgstation's
+random events off, again through overrides only. After an upstream merge,
+re-check <code>SSgamemode</code>'s <code>set_storyteller</code>/<code>init_storyteller</code>, the storyteller
+vote and <code>SSevents.spawnEvent</code> against it; the native smoke test asserts it.</p>
+<p><code>modular_babylon/code/moderation.dm</code> grants lobby admins (<code>BABYLON_ADMINS</code>) full
+game-admin rights on admission, removes mentors (no mentor is loaded, admins
+are not made mentors, Mentorhelp and Mentorwho are gone) and relays adminhelps
+to the supervisor for the Discord <code>ahelp</code> feature; Discord replies use the
+game's external admin PM (<code>TgsPm</code>). All through overrides. After an upstream
+merge, re-check <code>MessageNoRecipient</code>, <code>reply_to_admins_notification</code>,
+<code>receive_ahelp</code>, <code>TgsPm</code> and the Skyrat mentor module against it.</p>
+<p><code>modular_babylon/code/research.dm</code> replaces the research point bank and queue:
+a techweb researches one selected node at a time, all income (through
+<code>add_point_list</code>) goes towards it capped at its price, <code>research_points</code> holds
+that progress, income without a target is dropped and switching targets starts
+over. The target is saved with the world. After an upstream merge, re-check
+<code>add_point_list</code>, <code>research_node</code>, <code>complete_experiment</code>, the queue procs and
+the R&amp;D console / PDA <code>research_node</code> and <code>ui_data</code> against it. It also removes
+designs Babylon never offers (ERP, pAI, AI core, MMI, positronic brain) from every node in
+<code>SSresearch.calculate_techweb_nodes</code> and refuses them in <code>/datum/techweb/add_design</code>;
+<code>/datum/techweb_node/Initialize</code> is not usable for that, because upstream's
+<code>initialize_all_techweb_nodes</code> calls it on the old, empty node list.</p>
+<p><code>modular_babylon/code/silicons.dm</code> removes pAIs, station AIs, MMIs and positronic
+brains, which no one can play: pAI cards, AI cores and loose MMIs/posibrains delete
+themselves on creation (wreck, saves, loot), their designs are removed,
+the plasteel &quot;AI core&quot; recipe and the PDA vendor's pAI cards are gone, and ghosts
+get no &quot;Enter Soulcatcher&quot; button. After an upstream merge, re-check new sources
+of pAI cards, AI cores and ghost-joinable silicons against it.</p>
+<p><code>modular_babylon/code/interface.dm</code> trims the game window through overrides and
+runtime winsets (the shared <code>interface/skin.dmf</code> is unchanged): the top bar keeps
+Menu, Settings, Fullscreen and Reconnect; the station is named after the world
+(<code>babylon-name</code>, markup characters removed); the status tab drops the round ID;
+and verbs for systems Babylon lacks (antag tickets, OPFOR, round-end reports,
+votes, respawn, relays, forum/Discord-DB linking ...) are removed. After an
+upstream merge, check new player verbs and the <code>infobuttons</code> controls.</p>
+<table><thead><tr><th>Upstream file</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>code/controllers/master.dm</code></td><td>Wait for restoration and final subsystem initialization before physics runs; support the isolated-test hold parameter.</td></tr>
+<tr><td><code>code/controllers/subsystem/mapping.dm</code></td><td>Size the standalone map for Babylon and account for already allocated, unregistered lobby levels.</td></tr>
+<tr><td><code>code/modules/mapping/preloader.dm</code></td><td>Apply saved structural properties before atom initialization builds pipes and power networks.</td></tr>
+<tr><td><code>code/game/machinery/computer/atmos_computers/_air_sensor.dm</code></td><td>Skip fresh-map automatic vent claiming for restored sensors.</td></tr>
+<tr><td><code>code/__HELPERS/priority_announce.dm</code></td><td>Suppress round announcements and command reports in the builder world.</td></tr>
+<tr><td><code>modular_zubbers/code/modules/storyteller/divergency_report.dm</code></td><td>Suppress round-start station-trait reporting.</td></tr>
+<tr><td><code>code/modules/client/client_procs.dm</code></td><td>Validate single-use lobby admission before registering a child client or creating an avatar. Enforce showcase play mode and restrict visitor Topics/clicks before target dispatch. Standalone builds restrict access to their configured owner.</td></tr>
+<tr><td><code>code/modules/escape_menu/escape_menu.dm</code></td><td>Add the Discord button (<code>modular_babylon/code/links.dm</code>) to Resources when <code>DISCORDURL</code> is set.</td></tr>
+<tr><td><code>code/controllers/subsystem/verbs.dm</code></td><td>Enforce the visitor verb allowlist for native/context verbs, including verbs belonging to world objects.</td></tr>
+<tr><td><code>code/_onclick/drag_drop.dm</code></td><td>Reject showcase visitor mouse-down/up, drag and drop before target handlers or signals run.</td></tr>
+<tr><td><code>code/modules/keybindings/bindings_client.dm</code></td><td>Limit visitor shortcuts to chat and harmless display controls; normal movement handling remains available.</td></tr>
+<tr><td><code>code/modules/mob/mob_movement.dm</code></td><td>Enforce the visitor body before accepting movement, including reconnects from a former playable body.</td></tr>
+<tr><td><code>code/modules/atmospherics/machinery/components/unary_devices/airlock_pump.dm</code></td><td>Skip fresh-install door animations for saved pumps; rebuild their saved connections after restoration.</td></tr>
+<tr><td><code>code/datums/materials/material_container/material_container.dm</code></td><td>Discard invalid material keys before UI generation and stock accounting, preserving valid quantities.</td></tr>
+<tr><td><code>tgui/packages/tgui-panel/settings/atoms.ts</code>, <code>migration.ts</code></td><td>Default the chat panel (and with it the window) to the dark theme, and apply the default theme on a player's first start. Players' saved choices are kept.</td></tr>
+<tr><td><code>tgui/packages/tgui/interfaces/Techweb/Content.tsx</code>, <code>nodes/TechNode.tsx</code>, <code>types.ts</code></td><td>When the server sends <code>babylon_research</code>, show the node being researched instead of point balances and the queue, a Research / Researching button instead of research and queue buttons, and progress only on that node. Without it, the upstream screens are unchanged.</td></tr>
+<tr><td><code>tgui/packages/tgui-escape-menu/EscapeMenu.tsx</code>, <code>pages/PlayersPage.tsx</code></td><td>When the server sends <code>babylon</code>, hide the Round ID line and the &quot;No Admins Online!&quot; heading. Unchanged otherwise.</td></tr>
+<tr><td><code>code/modules/admin/sql_message_system.dm</code></td><td>Without a database (<code>SQL_ENABLED</code> off), <code>get_message_output</code> returns quietly instead of telling every player at login that the database connection failed.</td></tr>
+<tr><td><code>tgui/packages/tgui/interfaces/VaultController.tsx</code></td><td>Render the Babylon generation interlock (live generation, ignored battery output, hold timer) when the controller sends those fields; the upstream charge view is unchanged otherwise. Rebuild the TGUI bundle after editing.</td></tr>
+</tbody></table>
+<p>Keep these patches small. Do not copy complete upstream files from the local
+prototype. When upstream changes a hook's surrounding procedure, review its
+execution order, not just whether Git merges the text cleanly. In particular,
+moving restoration after simulation startup reintroduces reactor/network bugs.</p>
+<h2 id="updating-upstream">Updating upstream</h2>
+<pre><code class="language-sh">git remote add upstream https://github.com/SPLURT-Station/S.P.L.U.R.T-tg.git
+git fetch upstream
+git merge upstream/master
+</code></pre>
+<p>Skip <code>remote add</code> if the remote already exists. Preserve upstream history;
+do not squash upstream into this repository or force-push over its branches.</p>
+<p>After every merge:</p>
+<ol>
+<li>Review every <code>BABYLON13</code> marker and the standalone wrapper.</li>
+<li>Rename newly introduced <code>.github/workflows/*.yml</code> / <code>*.yaml</code> files with a
+<code>.disabled</code> suffix before pushing. Keep repository Actions disabled too.</li>
+<li>Compile ordinary <code>tgstation.dme</code>, production <code>babylon.dme</code>, and the local
+<code>babylon-test.dme</code> test build.</li>
+<li>Exercise a fresh wreck, a save/reload, pipe expansion, vent/alarm links,
+materials, airlock groups, and drone death/respawn. Use an isolated process
+and disposable world; never point tests at a player's running instance.</li>
+</ol>
+<p>The private prototype's six upstream hooks were carried forward. Its chat
+transcript patch, personal config, owner name, repair object IDs, saved world,
+and training/admin subsystem were deliberately not imported.</p></td></tr></table></main><footer>babylon.dme <a href="https://github.com/scolastico/babylon13/tree/79353a5a966a5f2ebe4ab9910e2921501b13cb1c">79353a5</a> (master) — <a href="https://github.com/SpaceManiac/SpacemanDMM/blob/master/crates/dmdoc/README.md">dmdoc 1.11.0</a></footer></body></html>

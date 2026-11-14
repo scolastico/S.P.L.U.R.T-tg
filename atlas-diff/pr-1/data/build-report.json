@@ -1,0 +1,26 @@
+{
+  "commit": "5acd868ca2a3c816d56b686a7e3cf5bfea91b320",
+  "baseline": null,
+  "changedFiles": null,
+  "rebuilt": [
+    "boxstation"
+  ],
+  "reused": [],
+  "forced": false,
+  "workers": 4,
+  "sprites": {
+    "requested": 8975,
+    "missingIcon": 0,
+    "missingState": 2,
+    "samples": [
+      {
+        "icon": "modular_zubbers/icons/obj/service/advertisements.dmi",
+        "state": "null"
+      },
+      {
+        "icon": "modular_zubbers/icons/obj/service/advertisements.dmi",
+        "state": "null"
+      }
+    ]
+  }
+}

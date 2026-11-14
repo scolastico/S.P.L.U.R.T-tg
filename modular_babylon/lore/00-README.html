@@ -1,0 +1,187 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><base href="../../"><link rel="stylesheet" href="dmdoc.css"><title>modular_babylon/lore/00-README.md - /tg/ Station 13</title></head><body><header><a href="index.html">/tg/ Station 13</a> - <a href="index.html#modules">Modules</a> - <a href="index.html#types">Types</a></header><main><h1>Babylon 13 lore pack <aside>modular_babylon/lore/00-README.md</aside> <a href="https://github.com/scolastico/babylon13/blob/79353a5a966a5f2ebe4ab9910e2921501b13cb1c/modular_babylon/lore/00-README.md"><img src="git.png" width="16" height="16" title="modular_babylon/lore/00-README.md"></a></h1><table class="summary" cellspacing="0"><tr><td colspan="2"><p>These files are the source text and design notes for the lore compiled into
+<code>modular_babylon/code/lore.dm</code> and <code>modular_babylon/code/vault.dm</code>. Edit the
+paper here first, then copy the body into the matching <code>default_raw_text</code>.
+Each paper file has a short header (type, tier, placement, stamps) above a <code>---</code>
+line; only the text below that line goes into the paper.</p>
+<p>Implemented on 2026-11-10: all fifteen papers, the flat satchels and sealed
+crates that hold them, the vault annex and inner doors
+(<code>_maps/babylon/vault_annex.json</code>), the generation interlock, the one-hour
+pulse interlock, the watchdog server with its generated core log, and lethal
+hunger and thirst (<code>modular_babylon/code/survival.dm</code>).</p>
+<h2 id="canon-spine">Canon spine</h2>
+<ul>
+<li><strong>Babylon</strong> was a research station run by &quot;Operations&quot; for &quot;the Board&quot;.
+Dr. Mara Vale led <strong>Project MNEMOSYNE</strong>: holding a human mind in the station's
+maintenance drone lattice.</li>
+<li>Mnemosyne worked, partially. The lattice holds a <strong>pattern</strong> (dispositions,
+skills, wanting, how you decide) but not the <strong>archive</strong> (what happened to
+you: faces, names, the order of days). Operations ordered the archive media
+destroyed. Vale sealed it in the server behind the vault instead.</li>
+<li>The recall order was signed at 02:40, before the accident. The uplink was cut
+at 03:14, the hull failed at 03:17. Twenty-eight people left in three groups.
+None confirmed arrival.</li>
+<li><strong>Vale and Ilya stayed</strong> and wrote themselves into the lattice.</li>
+</ul>
+<h3 id="lattice-seeds-selves-the-shard-rules">Lattice, seeds, selves (the shard rules)</h3>
+<ul>
+<li>The lattice is <strong>one shared substrate</strong> across every drone shell and the
+watchdog cell. Vale's pattern went in first. Ilya's went in over the top of
+it, onto the same nodes, because there was no time to partition. The result is
+a <strong>blend</strong>. Neither original can be reassembled from it. Vale knew that and
+accepted it.</li>
+<li>Waking a shell means the watchdog draws a <strong>seed</strong>: a small, self-consistent
+sample of the blend, leaning by chance toward one or the other. A seed is
+what you wake with: some skills, some habits, a strong wish to fix what is
+broken and keep the others safe. <strong>A seed is not a personality.</strong> It does not
+decide what you like, what you build, or who you become.</li>
+<li>A seed becomes a <strong>self</strong> by living. From the first hour, what a shell
+chooses is its own. That is the only way a fragment becomes a complete
+person, and it is the only way Vale wanted it to happen. Nobody is meant to
+reassemble Vale or Ilya.</li>
+</ul>
+<h3 id="death-re-seat-drift-what-survives">Death, re-seat, drift (what survives)</h3>
+<ul>
+<li>The watchdog keeps each woken self synced into the lattice. On chassis loss
+it seats that self, whole, into the next shell. <strong>Everything the self has
+lived since waking survives.</strong> The player keeps their own memories.</li>
+<li><strong>Drift</strong> (the old &quot;copy loss&quot;): each re-seat re-samples the inherited part.
+A little less Vale-or-Ilya each time, a little more of what the self made on
+its own. Vale treats drift as the experiment succeeding, not failing.</li>
+<li>The <strong>archive</strong> is not in the lattice. It is sealed media in the inner
+chamber. Nothing about dying or re-seating touches it.</li>
+<li>Tools and the issued emergency kit stay with the old chassis. The watchdog
+moves selves, not matter.</li>
+</ul>
+<h3 id="shells">Shells</h3>
+<ul>
+<li>Sixteen was the <strong>reserve count at the night of the split</strong>, not a limit.
+The dispenser in secure engineering storage fabricates shells from stock
+materials. Shells cost material, not lives. Emergency stores are issued once
+per self.</li>
+</ul>
+<h3 id="why-it-slept-why-it-woke">Why it slept, why it woke</h3>
+<ul>
+<li>Ilya cut the watchdog from the station bus and tied it to the vault's own
+isolated cell, with one rule: wake only when a chassis can survive long enough
+to repair. The cell charged at a trickle from one surviving solar string. The
+clock lost sync when the bus was cut. Nobody chose &quot;now&quot;. A capacitor crossed
+a line.</li>
+</ul>
+<h3 id="the-vault-and-the-inner-door">The vault and the inner door</h3>
+<ul>
+<li><strong>Outer vault:</strong> Ilya moved the interlock from a stored-charge reading to a
+live-generation reading. Batteries are not proof; a salvage crew arrives with
+batteries. The vault wants a number, not a method. The supermatter is the
+route Ilya knows; the papers leave room for others.</li>
+<li><strong>Inner door:</strong> the archive is dangerous to a fresh seed. An archive written
+onto a self that has not yet become anyone does not inform it, it replaces it.
+You would wake up Vale, and Vale did not want to be woken up. The door
+therefore needs a condition meaning &quot;has become someone and chose a
+housing&quot;. Vale could not build a sensor for that. In the time she had, the
+only sensor she could build was a <strong>pulse</strong>: a grown body is proof of a long,
+chosen, cooperative project. It is a proxy, not a philosophy, and Ilya says
+so in writing. Vale apologises for it in her last letter.</li>
+<li><strong>Once opened, the inner door stays open.</strong> One self with a pulse opens it
+for everyone. Nobody has to stay in a body they did not want.</li>
+<li>The transfer rig is <strong>not</strong> behind the door. It is built from the Phase III
+roadmap in the open.</li>
+<li>The watchdog's rule is symmetric: a self in a pulsed body is a heartbeat. A
+heartbeat that stops is a chassis lost, and the self comes back as a drone.</li>
+</ul>
+<h3 id="after-the-archive-open-threads-for-continued-play">After the archive (open threads for continued play)</h3>
+<ul>
+<li>The twenty-eight: no arrival was ever confirmed. Long-range comms, a
+telescope, a probe.</li>
+<li>The bus: whatever came down the uplink at 03:14 is still on the isolated
+main computer. Investigate it, quarantine it, or leave it.</li>
+<li>The Board: someone signed a termination order before the accident. The
+recall printout is the only evidence on the station.</li>
+<li>Somewhere safe to wake up: more seeds will come. More bodies can be grown.
+The station can be a place others arrive at rather than a wreck others
+left.</li>
+</ul>
+<p>Names: Vale is &quot;she&quot;. Ilya is deliberately never gendered. S. Ren (medical)
+stays as the evacuation voice.</p>
+<h2 id="paper-tiers-and-placement">Paper tiers and placement</h2><table><thead><tr><th>#</th><th>File</th><th>Type suffix</th><th>Tier</th><th>Placement</th></tr></thead><tbody>
+<tr><td>1</td><td>01-watchdog-sheet.md</td><td>watchdog</td><td>0 open</td><td>secure engineering storage (respawn room)</td></tr>
+<tr><td>2</td><td>02-restart-order.md</td><td>restart</td><td>0 open</td><td>engine room</td></tr>
+<tr><td>3</td><td>03-triage-tally.md</td><td>triage</td><td>0 open</td><td>medical</td></tr>
+<tr><td>4</td><td>04-recall-directive.md</td><td>recall</td><td>0 open</td><td>bridge</td></tr>
+<tr><td>5</td><td>05-fault-review.md</td><td>pressure</td><td>0 open</td><td>atmospherics</td></tr>
+<tr><td>6</td><td>06-last-light.md</td><td>last_light</td><td>0 open</td><td>chapel</td></tr>
+<tr><td>7</td><td>07-notebook-page.md</td><td>research</td><td>1 under floor</td><td>research, smuggler's satchel</td></tr>
+<tr><td>8</td><td>08-cell-note.md</td><td>cell</td><td>1 under floor</td><td>engine room (solar control has no intact floor), smuggler's satchel</td></tr>
+<tr><td>9</td><td>09-to-whoever.md</td><td>letter</td><td>1 under floor</td><td>service / dorm side, smuggler's satchel</td></tr>
+<tr><td>10</td><td>10-seed-ledger.md</td><td>ledger</td><td>2 vault chamber 1</td><td>inside a crate</td></tr>
+<tr><td>11</td><td>11-housing-roadmap.md</td><td>housing</td><td>2 vault chamber 1</td><td>inside a crate</td></tr>
+<tr><td>12</td><td>12-interlock-memo.md</td><td>interlock</td><td>2 vault chamber 1</td><td>archive box by the inner door</td></tr>
+<tr><td>13</td><td>13-core-log.md</td><td>core_log</td><td>3 watchdog chamber</td><td><strong>printed by the server from world state</strong></td></tr>
+<tr><td>14</td><td>14-transfer-transcript.md</td><td>transcript</td><td>3 watchdog chamber</td><td>server printout, archive box on the left table</td></tr>
+<tr><td>15</td><td>15-vale-final.md</td><td>vale_final</td><td>3 watchdog chamber</td><td>archive box on the right table</td></tr>
+</tbody></table>
+<p>Tier 0 establishes the evacuation, the two who stayed, and that the drones were
+meant to remain. Tier 1 seeds the shard idea. Tier 2 states the seed rules,
+what survives death, and the body project. Tier 3 is confirmation and the
+handover to open-ended play.</p>
+<h2 id="where-each-rule-lives-to-keep-repetition-down">Where each rule lives (to keep repetition down)</h2><table><thead><tr><th>Rule</th><th>Stated fully in</th><th>Callback only in</th></tr></thead><tbody>
+<tr><td>Live generation unlocks the outer vault</td><td>02</td><td>13 (log line)</td></tr>
+<tr><td>Seeds, selves, drift, what survives death</td><td>10</td><td>07 (pattern/archive table), 09 (one line), 14 (shown, not stated)</td></tr>
+<tr><td>Pulse opens the inner door, and why</td><td>12</td><td>11 (one line), 13 (rule R8), 15 (apology)</td></tr>
+<tr><td>Stopped heartbeat re-seats you as a drone</td><td>13 (rules R6, R7)</td><td>11 (one line)</td></tr>
+<tr><td>Shell supply</td><td>01, 10</td><td>none</td></tr>
+<tr><td>&quot;Check every flow path&quot;</td><td>05</td><td>02 (quoted), 15 (postscript joke)</td></tr>
+</tbody></table>
+<h2 id="presentation-notes">Presentation notes</h2>
+<ul>
+<li>Papers render Markdown (GFM, line breaks on) and then a DOMPurify HTML subset.
+By default <code>style</code>, <code>class</code> and <code>img</code> are stripped. Our paper subtype adds its
+default text with the advanced flag so inline style and data-URI images work.</li>
+<li>Stamps are placed with explicit x, y, rotation, colour and scale. Existing
+icon states cover VOID, DENIED, OK, CentCom, and the head-of-staff seals. A
+Mnemosyne seal needs one new icon state; until then the RD stamp in a custom
+colour stands in.</li>
+<li>Keep each paper under about 1,800 characters.</li>
+</ul>
+<h2 id="the-core-log-is-generated-not-written">The core log is generated, not written</h2>
+<p>Paper 13 is a template. The watchdog server structure prints a fresh strip
+from the world's own state when the inner door is first opened (and again on
+request from the server), filling:</p>
+<table><thead><tr><th>Field</th><th>Source</th></tr></thead><tbody>
+<tr><td><code>{woken}</code></td><td>number of distinct selves ever seated in this world</td></tr>
+<tr><td><code>{reseats}</code></td><td>total re-seat events (drone respawns)</td></tr>
+<tr><td><code>{events}</code></td><td>the last N re-seat lines: shell id lost, shell id seated, drift %</td></tr>
+<tr><td><code>{outer}</code></td><td>tick or save stamp when the outer vault first unlocked</td></tr>
+<tr><td><code>{inner}</code></td><td>tick or save stamp when the inner door opened, and who stood there</td></tr>
+<tr><td><code>{heartbeats}</code></td><td>current count of selves in pulsed bodies</td></tr>
+</tbody></table>
+<p>Ticks are shown as <code>t+&lt;n&gt;</code> with no date, because the clock was lost with the
+bus. The persistence layer already tracks respawns, so this is mostly plumbing.</p>
+<h2 id="vault-power-gate-design">Vault power gate (design)</h2>
+<p>Current upstream behaviour: the vault controller siphons surplus from the cable
+under it until it has absorbed 10 MW total, then the lock button works. Any
+charged SMES dumped onto that cable satisfies it.</p>
+<p>New behaviour for Babylon:</p>
+<ul>
+<li>The controller <strong>consumes nothing</strong>. Every tick it reads the powernet of the
+cable beneath it and computes <strong>live generation</strong>: <code>powernet.avail</code> minus
+<code>output_used</code> of every SMES on that same powernet. SMES output never counts;
+solar, generators, TEG and turbine do.</li>
+<li>The lock toggles only while live generation is at or above
+<code>required_generation</code> (default 2 MW; a var so you can tune it). A 40-panel
+solar field makes about 100 kW. An SM loop through a TEG makes several MW. A
+large turbine setup can also reach it, which keeps the &quot;a number, not a
+method&quot; line honest.</li>
+<li>To avoid a one-tick spike unlocking it, the reading has to hold above the
+threshold for <code>hold_time</code> (default 30 s) of consecutive ticks.</li>
+<li>The UI shows &quot;Live generation: x kW / required y kW&quot; and a hold progress bar
+instead of the current charge bar.</li>
+</ul>
+<p>The inner door is a separate console, the continuity interlock, in the first
+chamber. A conscious human who touches it starts a 60-minute real-time
+sequence. The console checks every tick that the same human is still alive; if
+they die the sequence resets and the world is told. Anything that is not a
+living human gets &quot;No pulse detected.&quot; When the hour completes the inner doors
+open and bolt open, the opener's name and tick are saved with the world, and
+the watchdog server prints a core log. Players therefore have to have built
+life support and food before the inner chamber opens, which is also why hunger
+and thirst are lethal in Babylon (see <code>survival.dm</code>).</p></td></tr></table></main><footer>babylon.dme <a href="https://github.com/scolastico/babylon13/tree/79353a5a966a5f2ebe4ab9910e2921501b13cb1c">79353a5</a> (master) — <a href="https://github.com/SpaceManiac/SpacemanDMM/blob/master/crates/dmdoc/README.md">dmdoc 1.11.0</a></footer></body></html>
